@@ -1,0 +1,56 @@
+# Make sure to check the documentation at https://goreleaser.com
+# Run inside the builder image (nri-db2-builder:22.04), which holds the IBM clidriver headers
+# and libraries. The dashboard (dashboards/db2-dashboard.json) is not packaged; import it separately.
+
+version: 2
+project_name: nri-db2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: newrelic-db2
+    # A package directory, not a single file: cmd holds several files.
+    main: ./cmd
+    binary: nri-db2
+    env:
+      # The builder image supplies IBM_DB_HOME, CGO_CFLAGS and CGO_LDFLAGS.
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -r /opt/ibm/clidriver/lib
+
+archives:
+  - id: newrelic-db2
+    ids:
+      - newrelic-db2
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Version }}_{{ .Arch }}"
+    files:
+      - LICENSE*
+      - README.md
+      - config/db2-config.yml.sample
+      - config/db2-custom-query.yml.sample
+      - config/db2-log.yml.example
+      - config/db2-fluentbit.conf.example
+      - config/db2-parsers.conf.example
+      - config/db2-diag-jsonl-log.yml.example
+      - sql/grants.sql
+
+checksum:
+  name_template: 'checksums.txt'
+
+release:
+  name_template: "{{ .ProjectName }} v{{ .Version }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'

@@ -1,0 +1,59 @@
+# This workflow will validate a golang project
+
+name: Validate
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.x'
+        check-latest: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+
+    - name: Add GOBIN to PATH
+      run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      shell: bash
+
+    - name: Install IBM clidriver headers (go-vet and staticcheck type-check pkg/connection with cgo)
+      run: |
+        curl -fsSL https://public.dhe.ibm.com/ibmdl/export/pub/software/data/db2/drivers/odbc_cli/v12.1.4/linuxx64_odbc_cli.tar.gz \
+          -o "$RUNNER_TEMP/clidriver.tar.gz"
+        echo "77b754d19be2cd5c55f6feb8bd951c2b17aa6646289944855612c5a2ac555f55  $RUNNER_TEMP/clidriver.tar.gz" | sha256sum -c -
+        tar -xzf "$RUNNER_TEMP/clidriver.tar.gz" -C "$RUNNER_TEMP"
+        {
+          echo "CGO_ENABLED=1"
+          echo "CGO_CFLAGS=-I$RUNNER_TEMP/clidriver/include"
+          echo "CGO_LDFLAGS=-L$RUNNER_TEMP/clidriver/lib"
+        } >> "$GITHUB_ENV"
+
+    - name: Install staticcheck
+      run: "go install 'honnef.co/go/tools/cmd/staticcheck@latest'"
+
+    - name: Run pre-commit
+      uses: pre-commit/action@v3.0.1
+
+    - name: Install commitlint
+      run: "npm install -g @commitlint/cli @commitlint/config-conventional"
+
+    - name: Lint last commit message
+      run: "commitlint --from HEAD~1 --to HEAD --verbose"

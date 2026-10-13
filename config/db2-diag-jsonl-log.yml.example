@@ -1,0 +1,7 @@
+# Tails the JSONL files written by nri-db2 when COLLECT_DIAG_LOGS is true.
+# If you change DIAG_LOG_DIR, change the path below to match.
+logs:
+  - name: db2-diag-jsonl
+    file: /var/log/nri-db2/db2diag-*.jsonl
+    attributes:
+      logtype: db2diag

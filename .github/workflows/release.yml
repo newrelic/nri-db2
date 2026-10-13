@@ -1,0 +1,110 @@
+# This workflow releases a golang project with goreleaser. It runs only after the "Build & Test" and
+# "Validate" workflows have both succeeded for a push to main, and releases that exact commit.
+
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Build & Test", "Validate"]
+    types: [completed]
+    branches: [main]
+
+# Nothing is writable by default; the release job asks for what it needs.
+permissions:
+  contents: read
+
+# One release at a time, and a running release is never cancelled half way.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+
+  release:
+    # Only a successful run for a push (not a pull request) can release.
+    if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the tag and the release, upload the archive
+      actions: read     # list the runs of the other workflow
+    steps:
+    # Both workflows trigger this one. The first to finish finds the other still missing and stops
+    # here; the second finds both green and carries on.
+    - name: Require both checks to be green for this commit
+      id: gate
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        SHA: ${{ github.event.workflow_run.head_sha }}
+      run: |
+        ready=true
+        for workflow in "Build & Test" "Validate"; do
+          count=$(gh run list --workflow "$workflow" --commit "$SHA" --event push --status success --json databaseId --jq length)
+          if [[ "$count" -eq 0 ]]; then
+            echo "::notice::'$workflow' has no successful push run for $SHA yet: not releasing now"
+            ready=false
+          fi
+        done
+        echo "ready=$ready" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout the tested commit
+      if: steps.gate.outputs.ready == 'true'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        fetch-depth: 0
+
+    - name: Set up svu
+      if: steps.gate.outputs.ready == 'true'
+      uses: obfu5c8/action-svu@v1
+      id: install_svu
+      with:
+        type: none
+
+    # If main has moved on since the tested commit, this run does not release: the newer commit has
+    # its own run, and svu computes its version from every commit since the last tag, so that run
+    # releases this commit's changes too. Skipping is a clean success, not a failure.
+    - name: Tag latest commit
+      if: steps.gate.outputs.ready == 'true'
+      id: tag-commit
+      env:
+        SHA: ${{ github.event.workflow_run.head_sha }}
+      run: |
+        git fetch origin main
+        HEAD_MAIN=$(git rev-parse origin/main)
+        if [[ "$HEAD_MAIN" != "$SHA" ]]; then
+          echo "::notice::origin/main is $HEAD_MAIN, not the tested commit $SHA: not releasing now (the newer commit's own run releases it)"
+          echo "next-version=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        CURR=$(svu c)
+        NEXT=$(svu)
+        if [[ "$NEXT" != "$CURR" ]]; then
+          git tag "$NEXT"
+          echo "next-version=$NEXT" >> "$GITHUB_OUTPUT"
+        else
+          echo "next-version=" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Build builder image
+      if: steps.tag-commit.outputs.next-version != ''
+      run: docker build --platform=linux/amd64 -t nri-db2-builder:22.04 build/builder
+
+    # The tag is pushed right before GoReleaser, so the release is created against a tag that already
+    # exists on the remote (the job's contents: write permission allows the push). Caveat: if
+    # GoReleaser fails after this push, the tag stays in place and svu will not propose that version
+    # again, so the release has to be repaired by hand (delete the tag and re-run, or run GoReleaser
+    # locally against the tag).
+    - name: Push the tag
+      if: steps.tag-commit.outputs.next-version != ''
+      env:
+        NEXT: ${{ steps.tag-commit.outputs.next-version }}
+      run: git push origin "$NEXT"
+
+    - name: Run GoReleaser (inside the builder image)
+      if: steps.tag-commit.outputs.next-version != ''
+      run: |
+        docker run --rm --platform=linux/amd64 -v "$PWD":/src -w /src \
+          -e GITHUB_TOKEN nri-db2-builder:22.04 goreleaser release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

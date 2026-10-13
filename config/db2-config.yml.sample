@@ -1,0 +1,69 @@
+# Copy this file to /etc/newrelic-infra/integrations.d/db2-config.yml and edit it.
+# Commented "KEY: value" lines show the default of each optional key.
+
+# Secrets are resolved by the infrastructure agent before nri-db2 starts.
+# Produce the obfuscated secret with the New Relic CLI (infrastructure agent 1.14.0 or later):
+#   newrelic agent config obfuscate --value '<password>' --key '<key>'
+# Use the same key and the printed secret below, then reference the variable as ${db2MonitorPassword}.
+variables:
+  db2MonitorPassword:
+    obfuscated:
+      key: <key passed to --key>
+      secret: <obfuscated password printed by the command>
+
+integrations:
+  # Plain TCP.
+  - name: nri-db2
+    env:
+      HOSTNAME: db2-prod-01.example.com     # always set explicitly; there is no default
+      # PORT: 50000
+      DATABASE: SALESDB
+      USERNAME: monuser
+      PASSWORD: ${db2MonitorPassword}       # must not contain ';'
+      # CONNECT_TIMEOUT: 10
+      # QUERY_TIMEOUT: 30
+      # RUN_TIMEOUT: 100                    # seconds; if a run lasts longer, it publishes canConnect=0 and exits. 0 disables
+
+      # Custom queries (optional).
+      # CUSTOM_METRICS_CONFIG: /etc/newrelic-infra/integrations.d/db2-custom-query.yml
+
+      # Extra collections, all off by default. Each needs a GRANT EXECUTE from sql/grants.sql.
+      # COLLECT_TOP_QUERIES: true
+      # TOP_QUERIES_LIMIT: 20
+      # COLLECT_LONG_RUNNING_QUERIES: true
+      # LONG_RUNNING_THRESHOLD_SECONDS: 60
+      # COLLECT_LOCK_WAITS: true
+
+      # db2diag.log collection through PD_GET_DIAG_HIST (opt-in). Also copy
+      # db2-diag-jsonl-log.yml.example to /etc/newrelic-infra/logging.d/db2-diag-jsonl-log.yml.
+      # COLLECT_DIAG_LOGS: true
+      # DIAG_LOG_DIR: /var/log/nri-db2
+      # DIAG_FACILITY: MAIN
+      # DIAG_RECTYPE: ALL
+      # DIAG_OVERLAP_SECONDS: 10
+      # DIAG_MAX_RECORDS_PER_RUN: 5000
+      # DIAG_MAX_FILE_MB: 50
+      # DIAG_MIN_IMPACT is empty by default, which keeps every record. Set it only to drop
+      # records below a minimum impact; any non-empty value also excludes event records.
+    interval: 30s
+    # timeout: 120s                         # the agent stops a run that lasts longer (default 120s); see Troubleshooting
+    labels:                                 # custom attributes added to every sample
+      env: production
+      team: dba
+    inventory_source: config/db2
+
+  # TLS. HOSTNAME must match the server certificate (clidriver 12.1.4 verifies the name;
+  # an IP address or another name fails with SQL20576N).
+  - name: nri-db2
+    env:
+      HOSTNAME: db2-prod-02.example.com
+      PORT: 50443
+      DATABASE: SALESDB
+      USERNAME: monuser
+      PASSWORD: ${db2MonitorPassword}
+      ENABLE_SSL: true                      # required whenever SSL_SERVER_CERTIFICATE is set
+      SSL_SERVER_CERTIFICATE: /etc/newrelic-infra/db2/db2-prod-02.arm
+    interval: 30s
+    labels:
+      env: production
+    inventory_source: config/db2

@@ -1,0 +1,10 @@
+# On-host db2diag.log tailing. Use only when the agent runs on the Db2 host.
+# Do not enable together with COLLECT_DIAG_LOGS for the same Db2 instance.
+# Copy db2-fluentbit.conf.example and db2-parsers.conf.example to the names below.
+logs:
+  - name: db2diag
+    attributes:
+      logtype: db2diag   # no effect for fluentbit sources (NR docs); logtype is set by record_modifier below
+    fluentbit:
+      config_file: /etc/newrelic-infra/logging.d/db2-fluentbit.conf
+      parsers_file: /etc/newrelic-infra/logging.d/db2-parsers.conf

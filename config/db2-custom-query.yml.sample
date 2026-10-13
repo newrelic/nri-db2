@@ -1,0 +1,47 @@
+# nri-db2 custom queries. Point CUSTOM_METRICS_CONFIG at a copy of this file.
+# Each query runs once per interval and publishes one sample per result row.
+# Only SELECT, WITH and VALUES statements are accepted, one statement per query.
+# At most 1000 rows of one query are published per run; the rest are dropped with a warning.
+#
+# A query that fails (typo, missing privilege, timeout) is logged by name and skipped; the
+# standard samples and the other queries are not affected.
+queries:
+  # Column labels become attribute names. Db2 upper-cases an unquoted alias, so alias in double
+  # quotes to keep the case: "dataLogicalReads" stays dataLogicalReads, dataLogicalReads becomes
+  # DATALOGICALREADS. Keys under metric_types must match the label exactly (case-sensitive).
+  - name: bufferpool_data_reads     # optional; value of the `query` attribute (default custom<N>, inline query: inline)
+    query: >-
+      SELECT bp_name AS "bufferpoolName", pool_data_l_reads AS "dataLogicalReads"
+      FROM TABLE(MON_GET_BUFFERPOOL(NULL, -1))
+    # Optional. Without it a numeric column is a gauge and a string column is an attribute:
+    #   BIGINT, SMALLINT, INTEGER, REAL, DOUBLE, DECIMAL, DECFLOAT -> gauge
+    #   VARCHAR, CHAR, TIMESTAMP (published as RFC 3339 text)     -> attribute
+    #   NULL values are skipped.
+    # Accepted types: gauge, delta, rate, attribute.
+    metric_types:
+      dataLogicalReads: gauge
+    sample_name: Db2CustomSample    # optional; defaults to Db2CustomSample
+
+  # A cumulative counter (monotonic count). `delta` publishes the difference
+  # since the previous run and drops a negative difference (a counter reset); the first run of a
+  # row publishes 0. `rate` is the difference per second and can go negative after a reset.
+  #
+  # Every attribute column of a row (here the tablespace name) identifies that row for the
+  # baseline, so a query that uses delta or rate must select at least one stable string column.
+  # An attribute whose value changes between runs (statement text, a timestamp) starts a new
+  # baseline every run, and the delta is then always 0.
+  - name: tablespace_files_closed
+    query: >-
+      SELECT tbsp_name AS "tablespaceName", files_closed AS "filesClosed"
+      FROM TABLE(MON_GET_TABLESPACE(NULL, -1))
+    metric_types:
+      filesClosed: delta
+
+# Not supported: per-query static tags (use agent-level labels:), the `count` column type
+# (aggregate with GROUP BY in the SQL), and the types pdelta and prate.
+#
+# Reserved labels, skipped with a warning (compared case-insensitively, so an unquoted alias, which
+# Db2 upper-cases, is caught too): event_type, entityKey, entityName, reportingEndpoint, db2Hostname,
+# port, database, query, hostname, host, fullHostname, agentName, agentVersion, displayName,
+# entityGuid, entityId, integrationName, integrationVersion, reportingAgent, externalKey, timestamp,
+# eventType, eventId.

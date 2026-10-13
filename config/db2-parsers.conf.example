@@ -1,0 +1,8 @@
+# db2diag_strict: a new record starts only at the full header timestamp plus UTC offset
+# (2026-10-09-15.24.03.728525+000). flush_timeout must be >= 2000 ms.
+[MULTILINE_PARSER]
+    name          db2diag_strict
+    type          regex
+    flush_timeout 2000
+    rule          "start_state"  "/^\d{4}-\d{2}-\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{6}[+-]\d{3,4} /"  "cont"
+    rule          "cont"         "/^(?!\d{4}-\d{2}-\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{6}[+-]\d{3,4} ).*/"  "cont"
