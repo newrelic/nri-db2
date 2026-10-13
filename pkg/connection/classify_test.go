@@ -87,6 +87,9 @@ func TestReason(t *testing.T) {
 	if want := "authentication (SQLSTATE 08001, SQL30082N)"; got != want {
 		t.Errorf("Reason() = %q, want %q", got, want)
 	}
+	if got, want := Reason(typed("42501", -551, "SQL0551N")), "other (SQLSTATE 42501, SQL0551N)"; got != want {
+		t.Errorf("Reason() = %q, want %q (four-digit message ID)", got, want)
+	}
 	if got := Reason(nil); got != "" {
 		t.Errorf("Reason(nil) = %q, want empty", got)
 	}

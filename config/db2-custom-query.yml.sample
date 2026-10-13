@@ -1,4 +1,4 @@
-# nri-db2 custom queries. Point CUSTOM_METRICS_CONFIG at a copy of this file.
+# nri-db2 custom queries. Copy to /etc/newrelic-infra/nri-db2/db2-custom-query.yml (or directory of your choice) and point CUSTOM_METRICS_CONFIG at it.
 # Each query runs once per interval and publishes one sample per result row.
 # Only SELECT, WITH and VALUES statements are accepted, one statement per query.
 # At most 1000 rows of one query are published per run; the rest are dropped with a warning.

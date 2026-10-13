@@ -62,7 +62,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [],
-                "query": "SELECT latest(databaseStatus), latest(databaseStatusCode), latest(canConnect) FROM Db2DatabaseSample FACET database"
+                "query": "SELECT latest(databaseStatus), latest(databaseStatusCode), latest(canConnect) FROM Db2DatabaseSample FACET db2Hostname, database"
               }
             ]
           }

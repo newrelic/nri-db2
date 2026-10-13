@@ -1,15 +1,18 @@
 # Copy this file to /etc/newrelic-infra/integrations.d/db2-config.yml and edit it.
 # Commented "KEY: value" lines show the default of each optional key.
 
-# Secrets are resolved by the infrastructure agent before nri-db2 starts.
+# Optional: keep the password out of this file with the agent's obfuscated secrets.
 # Produce the obfuscated secret with the New Relic CLI (infrastructure agent 1.14.0 or later):
 #   newrelic agent config obfuscate --value '<password>' --key '<key>'
-# Use the same key and the printed secret below, then reference the variable as ${db2MonitorPassword}.
-variables:
-  db2MonitorPassword:
-    obfuscated:
-      key: <key passed to --key>
-      secret: <obfuscated password printed by the command>
+# The command prints JSON; the secret is its "obfuscatedValue" string. To use it, uncomment this
+# block, fill in the same key and that secret, and set PASSWORD: ${db2MonitorPassword} below.
+# Leave the block commented out otherwise: the agent logs "failed to decode obfuscated secret"
+# for a placeholder secret.
+# variables:
+#   db2MonitorPassword:
+#     obfuscated:
+#       key: <key passed to --key>
+#       secret: <obfuscatedValue printed by the command>
 
 integrations:
   # Plain TCP.
@@ -19,13 +22,14 @@ integrations:
       # PORT: 50000
       DATABASE: SALESDB
       USERNAME: monuser
-      PASSWORD: ${db2MonitorPassword}       # must not contain ';'
+      PASSWORD: '<password>'                # must not contain ';'
+      # or ${db2MonitorPassword} with the variables: block above
       # CONNECT_TIMEOUT: 10
       # QUERY_TIMEOUT: 30
       # RUN_TIMEOUT: 100                    # seconds; if a run lasts longer, it publishes canConnect=0 and exits. 0 disables
 
       # Custom queries (optional).
-      # CUSTOM_METRICS_CONFIG: /etc/newrelic-infra/integrations.d/db2-custom-query.yml
+      # CUSTOM_METRICS_CONFIG: /etc/newrelic-infra/nri-db2/db2-custom-query.yml
 
       # Extra collections, all off by default. Each needs a GRANT EXECUTE from sql/grants.sql.
       # COLLECT_TOP_QUERIES: true
@@ -60,7 +64,7 @@ integrations:
       PORT: 50443
       DATABASE: SALESDB
       USERNAME: monuser
-      PASSWORD: ${db2MonitorPassword}
+      PASSWORD: '<password>'                # or ${db2MonitorPassword} with the variables: block above
       ENABLE_SSL: true                      # required whenever SSL_SERVER_CERTIFICATE is set
       SSL_SERVER_CERTIFICATE: /etc/newrelic-infra/db2/db2-prod-02.arm
     interval: 30s

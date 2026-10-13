@@ -72,6 +72,7 @@ This integration enables remote monitoring of IBM DB2.
    db2 connect to EXAMPLEDB
    db2 -tvf grants.sql
    ```
+   Create the user once per DB2 server. The grants are stored in each database's catalog, so run `db2 connect to <database>` and `db2 -tvf grants.sql` once for every database you want to monitor.
 
 4. Download `nri-db2_linux_<version>_amd64.tar.gz` from the [releases page](https://github.com/newrelic/nri-db2/releases) and unpack it:
    ```bash
@@ -79,18 +80,20 @@ This integration enables remote monitoring of IBM DB2.
    ```
    The archive contains the `nri-db2` binary, `LICENSE`, `README.md`, the sample files under `config/` and `sql/grants.sql`.
 
-5. Copy the binary to the Infrastructure agent's integrations directory:
+5. Copy the binary to the Infrastructure agent's custom integrations directory:
    ```bash
-   sudo cp nri-db2 /var/db/newrelic-infra/newrelic-integrations/bin/
-   sudo chmod +x /var/db/newrelic-infra/newrelic-integrations/bin/nri-db2
+   sudo cp nri-db2 /var/db/newrelic-infra/custom-integrations
+   sudo chmod +x /var/db/newrelic-infra/custom-integrations/nri-db2
    ```
 
 6. Copy the sample configuration and edit it:
    ```bash
    sudo cp config/db2-config.yml.sample /etc/newrelic-infra/integrations.d/db2-config.yml
    # Optional: custom queries
-   sudo cp config/db2-custom-query.yml.sample /etc/newrelic-infra/integrations.d/db2-custom-query.yml
+   sudo mkdir -p /etc/newrelic-infra/nri-db2
+   sudo cp config/db2-custom-query.yml.sample /etc/newrelic-infra/nri-db2/db2-custom-query.yml
    ```
+   Keep the custom query file out of `integrations.d`: the agent treats every `.yml` file in that directory as an integration config and logs a warning for a file that has no `integrations` field.
    Set `HOSTNAME`, `DATABASE`, `USERNAME` and `PASSWORD` at a minimum. See [Configuration](#configuration).
 
 7. Optional: to collect diagnostic logs, copy the matching log config example without the `.example` suffix. Use the first file for [Mode 1](#mode-1-remote-collection-through-sql) (remote collection, recommended) or the three config files for [Mode 2](#mode-2-on-host-tail-of-db2diaglog) (agent on the DB2 host itself). Do not use both modes for the same DB2 instance.
@@ -128,13 +131,14 @@ integrations:
       # PORT: 50000
       DATABASE: SALESDB
       USERNAME: monuser
-      PASSWORD: ${db2MonitorPassword}       # must not contain ';'
+      PASSWORD: '<password>'                # must not contain ';'
+      # or ${db2MonitorPassword} with the variables: block above
       # CONNECT_TIMEOUT: 10
       # QUERY_TIMEOUT: 30
       # RUN_TIMEOUT: 100
 
       # Custom queries (optional).
-      # CUSTOM_METRICS_CONFIG: /etc/newrelic-infra/integrations.d/db2-custom-query.yml
+      # CUSTOM_METRICS_CONFIG: /etc/newrelic-infra/nri-db2/db2-custom-query.yml
 
       # Extra collections, all off by default. Each needs a GRANT EXECUTE from sql/grants.sql.
       # COLLECT_TOP_QUERIES: true
@@ -161,7 +165,7 @@ integrations:
       PORT: 50443
       DATABASE: SALESDB
       USERNAME: monuser
-      PASSWORD: ${db2MonitorPassword}
+      PASSWORD: '<password>'                # or ${db2MonitorPassword}
       ENABLE_SSL: true                      # required whenever SSL_SERVER_CERTIFICATE is set
       SSL_SERVER_CERTIFICATE: /etc/newrelic-infra/db2/db2-prod-02.arm
     interval: 30s
@@ -188,7 +192,7 @@ These are the integration's own settings. All of them are set in the `env:` map.
 | `PORT` | `50000` | DB2 listener port (1-65535). |
 | `DATABASE` | none (required) | Database name (alias). One block monitors one database. |
 | `USERNAME` | none (required) | Monitoring user. Needs the grants in `sql/grants.sql`, or `SYSMON`, `SQLADM` or `DBADM`. |
-| `PASSWORD` | none (required) | Password for the monitoring user. Must not contain `;`. Never logged. Supply it through the agent `variables:` block. |
+| `PASSWORD` | none (required) | Password for the monitoring user. Must not contain `;`. Supply it through the agent `variables:` block (see [Secrets](#secrets)). |
 | `ENABLE_SSL` | `false` | Use TLS to the server. |
 | `SSL_SERVER_CERTIFICATE` | empty | Path to the server certificate (`.arm`) that the client trusts. Requires `ENABLE_SSL: true`. |
 | `CONNECT_TIMEOUT` | `10` | Seconds to wait when establishing the connection (minimum 1). |
@@ -235,13 +239,15 @@ Changing any argument between runs (including adding a flag) starts a new state 
 
 ### Secrets
 
-It is recommended to encrypt the password in the configuration file. With Infrastructure agent 1.14.0 or later, obfuscate it and reference it as a variable:
+It is recommended to encrypt the password in the configuration file. With Infrastructure agent 1.14.0 or later, obfuscate it and reference it as a variable.
 
 1. Create the obfuscated value with the New Relic CLI:
    ```bash
+   KEY=$(openssl rand -hex 8) # alternatively, choose your own key
    newrelic agent config obfuscate --value '<password>' --key '<key>'
    ```
-2. Add a `variables:` block with the key you passed and the secret that the command printed, then reference the variable in `PASSWORD`:
+   The command prints JSON, for example `{"obfuscatedValue": "<secret>"}`. The secret is the `obfuscatedValue` string.
+2. In `db2-config.yml`, uncomment the `variables:` block (it ships commented out so that an unedited copy does not log a decoding error), fill in the key you passed and the secret that the command printed, then set `PASSWORD: ${db2MonitorPassword}`:
    ```yaml
    variables:
      db2MonitorPassword:
@@ -254,6 +260,12 @@ It is recommended to encrypt the password in the configuration file. With Infras
        env:
          PASSWORD: ${db2MonitorPassword}
    ```
+
+To download the CLI (if not already present):
+
+```bash
+curl -Ls https://download.newrelic.com/install/newrelic-cli/scripts/install.sh | bash
+```
 
 The agent resolves the variable before it starts the integration.
 
@@ -379,7 +391,8 @@ How it works:
 When the Infrastructure agent runs on the Linux DB2 host itself, it can tail `db2diag.log` directly. Copy the three example files shown in [Installation](#installation) step 7, then edit the `Path` in `db2-fluentbit.conf` to your instance's `DIAGPATH` (usually `<instance home>/sqllib/db2dump/DIAG0000/db2diag.log`).
 
 - `db2-parsers.conf` defines a multi-line parser that starts a new record only at the full header timestamp, so records that contain timestamp-like data lines are not split. Keep `flush_timeout` at 2000 ms or more.
-- `logtype: db2diag` is set by the `record_modifier` filter in `db2-fluentbit.conf`.
+- `logtype: db2diag` is set by the `record_modifier` filter in `db2-fluentbit.conf`, and `filePath` holds the file the record came from.
+- The `timestamp` of each record is the time the agent read it, not the time in the record header. They normally differ by a second or two, but after an agent outage the backlog is stamped with the catch-up time. The header time is always the first token of `message`.
 - Records arrive with the full text in `message`. They are not parsed into attributes unless you add a New Relic log parsing rule for `logtype = 'db2diag'`.
 - If the `DIAGSIZE` database manager parameter is nonzero, Db2 writes a series of rotating `db2diag.N.log` files instead of one `db2diag.log`; point `Path` at the files you want to tail. How the agent's tail handles that rotation has not been tested.
 - Mode 2 needs no `COLLECT_DIAG_LOGS` setting.
@@ -403,7 +416,7 @@ Each `integrations:` block is reported as one **remote entity**:
 | Item | Value |
 |------|-------|
 | Entity type (namespace) | `db2-instance` |
-| Entity name | `<HOSTNAME>/<DATABASE>` with the database name **upper-cased**, for example `db2-prod-01.example.com/SALESDB` |
+| Entity name | `<HOSTNAME>/<DATABASE>` with the database name **upper-cased**, for example `db2-prod-01.example.com/SALESDB`. In NRQL, the agent sets the `entityName` attribute of the samples to `db2-instance:<HOSTNAME>/<DATABASE>`, with the type prefix; the diagnostic `Log` records carry it without the prefix. |
 | Reporting endpoint | `<HOSTNAME>:<PORT>` |
 
 Every sample carries three identity attributes, so you can filter and facet across all sample types:
@@ -788,9 +801,10 @@ The repository includes a template dashboard, `dashboards/db2-dashboard.json`. T
 
 1. **No data in New Relic**
    - Check the Infrastructure agent log, `/var/log/newrelic-infra/newrelic-infra.log`, for errors from `nri-db2`.
-   - Confirm that the binary is at `/var/db/newrelic-infra/newrelic-integrations/bin/nri-db2` and is executable, and that `db2-config.yml` is in `/etc/newrelic-infra/integrations.d/`.
+   - Confirm that the binary is at `/var/db/newrelic-infra/custom-integrations/nri-db2` and is executable, and that `db2-config.yml` is in `/etc/newrelic-infra/integrations.d/`.
    - Run the integration by hand (see item 10) to see the exact error.
    - Restart the agent after any change: `sudo systemctl restart newrelic-infra`.
+   - `failed to decode obfuscated secret` in the agent log: the `secret` in the `variables:` block is not the `obfuscatedValue` printed by `newrelic agent config obfuscate`, or the placeholder was left in. Fix the value, or comment the block out and use a plain `PASSWORD`.
 
 2. **`SQL0551N` / SQLSTATE `42501` (not authorized)**
    - The monitoring user is missing the grants. Connect to the database as the instance owner and run `sql/grants.sql` (after replacing `MONUSER`), or add the user to `SYSMON`, `SQLADM` or `DBADM`.
@@ -806,7 +820,7 @@ The repository includes a template dashboard, `dashboards/db2-dashboard.json`. T
    - `SQL20576N`: the server name does not match the certificate. Set `HOSTNAME` to the name in the certificate, not to an IP address or an alias.
    - `SQL30081N` with TLS enabled: the certificate file is missing or not trusted, or `ENABLE_SSL` is set against a port that is not a TLS port. Check `SSL_SERVER_CERTIFICATE`, and check that the port is the DB2 TLS port.
    - Conversely, a plaintext connection to a TLS port also fails with `SQL30081N`. Make sure `ENABLE_SSL` matches the port.
-   - A TLS client pointed at a plaintext port can take much longer to fail than `CONNECT_TIMEOUT`, so a misconfigured `ENABLE_SSL` can look like a hang.
+   - A TLS client pointed at a plaintext port ignores `CONNECT_TIMEOUT`: with clidriver 12.1.4, a connect can hang ~6 minutes before failing with `SQL30081N`. `RUN_TIMEOUT` (default 100 s) ends such a run, publishes `canConnect=0` and logs `run exceeded RUN_TIMEOUT`. If you see that message, check that `ENABLE_SSL` matches the port. Keep `RUN_TIMEOUT` below the agent's integration `timeout` (default 120 s), or the agent kills the run before anything is published.
    - After restarting the DB2 server, confirm that it is again listening for TLS connections on the TLS port.
 
 5. **`canConnect` is `0`**
@@ -842,7 +856,7 @@ The repository includes a template dashboard, `dashboards/db2-dashboard.json`. T
     - Run the same command the agent runs, with your settings in the environment, to see the output and any errors:
       ```bash
       HOSTNAME=db2-prod-01.example.com PORT=50000 DATABASE=SALESDB USERNAME=monuser PASSWORD='<password>' \
-        /var/db/newrelic-infra/newrelic-integrations/bin/nri-db2 -pretty -verbose
+        /var/db/newrelic-infra/custom-integrations/nri-db2 -pretty -verbose
       ```
     - Limit the output with `-metrics`, `-inventory` or `-events`, for example `-inventory -pretty`. Without them, all three are published.
     - Use the same environment variables as in the agent's `env:` block. A different set of arguments uses a different state store, so counters start from zero.
