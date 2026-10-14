@@ -125,7 +125,8 @@ func Reason(err error) string {
 	if d.code == 0 {
 		return fmt.Sprintf("%s (SQLSTATE %s)", c, d.state)
 	}
-	return fmt.Sprintf("%s (SQLSTATE %s, SQL%dN)", c, d.state, d.code)
+	// Db2 message IDs have at least four digits (SQL0551N, SQL30081N), and the README uses them.
+	return fmt.Sprintf("%s (SQLSTATE %s, SQL%04dN)", c, d.state, d.code)
 }
 
 // maxDetail caps the error text in Reason, in characters.

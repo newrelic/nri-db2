@@ -8,6 +8,14 @@
     multiline.parser  db2diag_strict
     Read_from_Head    Off
     DB                /var/db/newrelic-infra/db2diag.fb.db
+    # Adds the source file as filePath, so the records of several instances can be told apart.
+    Path_Key          filePath
+
+# The blank line between two records sometimes arrives as an event of its own; drop those.
+[FILTER]
+    Name    grep
+    Match   db2diag
+    Exclude log ^\s*$
 
 [FILTER]
     Name    record_modifier
