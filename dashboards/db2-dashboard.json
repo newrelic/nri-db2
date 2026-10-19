@@ -1,6 +1,6 @@
 {
   "name": "IBM DB2",
-  "description": "Monitoring for IBM DB2 collected by the nri-db2 integration.",
+  "description": "Observability for IBM DB2, collected by the nri-db2 OHI",
   "permissions": "PUBLIC_READ_WRITE",
   "pages": [
     {
@@ -8,427 +8,963 @@
       "description": "Connectivity, database status, connections, applications and row activity.",
       "widgets": [
         {
-          "title": "Can connect (1 = yes, 0 = no)",
+          "id": "575466911",
+          "title": "Database status",
           "layout": {
             "column": 1,
             "row": 1,
-            "width": 4,
-            "height": 3
+            "width": 6,
+            "height": 2
           },
-          "visualization": {
-            "id": "viz.billboard"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT latest(canConnect) FROM Db2DatabaseSample FACET database"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Database status code (0 OK, 1 warning, 2 critical, 3 unknown)",
-          "layout": {
-            "column": 5,
-            "row": 1,
-            "width": 4,
-            "height": 3
-          },
-          "visualization": {
-            "id": "viz.billboard"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT latest(databaseStatusCode) FROM Db2DatabaseSample FACET database"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Database status",
-          "layout": {
-            "column": 9,
-            "row": 1,
-            "width": 4,
-            "height": 3
-          },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.table"
           },
           "rawConfiguration": {
+            "dataFormatters": [],
+            "facet": {
+              "showOtherSeries": false
+            },
+            "linkedEntityGuids": [
+              "{{selfEntity}}"
+            ],
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT latest(databaseStatus), latest(databaseStatusCode), latest(canConnect) FROM Db2DatabaseSample FACET db2Hostname, database"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(databaseStatus), latest(databaseStatusCode), latest(canConnect), latest(if(backupLatest < 0, -1, (backupLatest / 86400))) as 'Days since last backup' FROM Db2DatabaseSample FACET db2Hostname, database "
+              }
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": [
+              {
+                "columnName": "Database Status Code",
+                "from": 1,
+                "severity": "warning",
+                "to": 1
+              },
+              {
+                "columnName": "Can Connect",
+                "from": 0,
+                "severity": "critical",
+                "to": 0
+              },
+              {
+                "columnName": "Database Status Code",
+                "from": 2,
+                "severity": "critical",
+                "to": 2
+              },
+              {
+                "columnName": "Database Status Code",
+                "from": 3,
+                "severity": "unavailable",
+                "to": 3
               }
             ]
           }
         },
         {
-          "title": "Applications active and executing",
+          "id": "575466915",
+          "title": "New connections per interval",
+          "description": "New connections made to the database",
           "layout": {
-            "column": 1,
-            "row": 4,
+            "column": 7,
+            "row": 1,
             "width": 6,
-            "height": 3
+            "height": 2
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT average(applicationActive), average(applicationExecuting) FROM Db2DatabaseSample TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT sum(connectionTotal) as 'connections to database' FROM Db2DatabaseSample TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
+          "id": "575466913",
           "title": "Connections active and maximum",
           "layout": {
-            "column": 7,
-            "row": 4,
+            "column": 1,
+            "row": 3,
             "width": 6,
-            "height": 3
+            "height": 2
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT average(connectionActive), average(connectionMax) FROM Db2DatabaseSample TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(connectionActive) as 'Avg connections active', average(connectionMax) as 'concurrent connections'  FROM Db2DatabaseSample TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
+          "id": "575466914",
           "title": "Row activity per interval (reads, modifications, returned)",
+          "description": "Rows read, inserted, updated, returned or deleted.",
+          "layout": {
+            "column": 7,
+            "row": 3,
+            "width": 6,
+            "height": 2
+          },
+          "linkedEntityGuids": null,
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT sum(rowReadsTotal) as 'total rows read', sum(rowModifiedTotal) as 'total rows modified', sum(rowReturnedTotal) as 'total rows returned' FROM Db2DatabaseSample TIMESERIES"
+              }
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
+          }
+        },
+        {
+          "id": "575466912",
+          "title": "Applications active and executing",
+          "description": "Number of applications currently connected to the database",
           "layout": {
             "column": 1,
-            "row": 7,
-            "width": 6,
-            "height": 3
+            "row": 5,
+            "width": 12,
+            "height": 2
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT sum(rowReadsTotal), sum(rowModifiedTotal), sum(rowReturnedTotal) FROM Db2DatabaseSample TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(applicationActive), average(applicationExecuting) FROM Db2DatabaseSample TIMESERIES"
               }
-            ]
-          }
-        },
-        {
-          "title": "New connections per interval",
-          "layout": {
-            "column": 7,
-            "row": 7,
-            "width": 6,
-            "height": 3
-          },
-          "visualization": {
-            "id": "viz.line"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT sum(connectionTotal) FROM Db2DatabaseSample TIMESERIES"
-              }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         }
       ]
     },
     {
-      "name": "Locks and log",
+      "guid": "Nzg3MTYxNHxWSVp8REFTSEJPQVJEfDUxNDA0MTE5",
+      "name": "Logs & Locks",
       "description": "Lock contention, deadlocks and transaction log usage.",
       "widgets": [
         {
-          "title": "Lock waiters and active locks",
+          "id": "575466919",
+          "title": "Transaction log utilized (%)",
+          "description": "Percentage of the transaction log in use, calculated as `used / (used + available) x 100`",
           "layout": {
             "column": 1,
             "row": 1,
-            "width": 6,
+            "width": 3,
             "height": 3
           },
+          "linkedEntityGuids": null,
+          "visualization": {
+            "id": "viz.gauge"
+          },
+          "rawConfiguration": {
+            "facet": {
+              "showOtherSeries": false
+            },
+            "gaugeSettings": {
+              "display": "auto",
+              "displayMode": "arc",
+              "max": 100,
+              "min": 0,
+              "showThresholdLabels": false,
+              "showThresholdMarkers": true,
+              "thresholdsColorMode": "solid"
+            },
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(logUtilized) FROM Db2DatabaseSample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET database "
+              }
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "thresholds": [
+                {
+                  "from": 1,
+                  "severity": "success"
+                },
+                {
+                  "from": 60,
+                  "severity": "warning"
+                },
+                {
+                  "from": 90,
+                  "severity": "critical"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "575466920",
+          "title": "Transaction log utilized (%) over time",
+          "layout": {
+            "column": 4,
+            "row": 1,
+            "width": 9,
+            "height": 3
+          },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT average(lockWaiting), average(lockActive) FROM Db2DatabaseSample TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(logUtilized) FROM Db2DatabaseSample where database = {{db_instance}} or db2Hostname = {{db_host}} TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
+          "id": "575466922",
+          "title": "Log writes and reads per interval",
+          "description": "Number of log pages read vs written.",
+          "layout": {
+            "column": 1,
+            "row": 4,
+            "width": 12,
+            "height": 3
+          },
+          "linkedEntityGuids": null,
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT sum(logWrites), sum(logReads) FROM Db2DatabaseSample where database = {{db_instance}} or db2Hostname = {{db_host}} TIMESERIES"
+              }
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
+          }
+        },
+        {
+          "id": "575466916",
+          "title": "Lock waiters and active locks",
+          "description": "Number of locks held vs number of app requests currently waiting on a lock.",
+          "layout": {
+            "column": 1,
+            "row": 7,
+            "width": 6,
+            "height": 3
+          },
+          "linkedEntityGuids": null,
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(lockWaiting) as 'avg locks waiting', average(lockActive) as 'avg locks held' FROM Db2DatabaseSample where database = {{db_instance}} or db2Hostname = {{db_host}} TIMESERIES"
+              }
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
+          }
+        },
+        {
+          "id": "575466917",
           "title": "Deadlocks and lock timeouts per interval",
           "layout": {
             "column": 7,
-            "row": 1,
-            "width": 6,
-            "height": 3
-          },
-          "visualization": {
-            "id": "viz.line"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT sum(lockDead), sum(lockTimeouts) FROM Db2DatabaseSample TIMESERIES"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Average lock wait time (ms)",
-          "layout": {
-            "column": 1,
-            "row": 4,
-            "width": 6,
-            "height": 3
-          },
-          "visualization": {
-            "id": "viz.line"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT average(lockWait) FROM Db2DatabaseSample TIMESERIES"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Transaction log utilized (%)",
-          "layout": {
-            "column": 7,
-            "row": 4,
-            "width": 6,
-            "height": 3
-          },
-          "visualization": {
-            "id": "viz.billboard"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT latest(logUtilized) FROM Db2DatabaseSample FACET database"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Transaction log utilized (%) over time",
-          "layout": {
-            "column": 1,
             "row": 7,
             "width": 6,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT latest(logUtilized) FROM Db2DatabaseSample TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT sum(lockDead) as 'deadlocks', sum(lockTimeouts) as 'locks timed out' FROM Db2DatabaseSample where database = {{db_instance}} or db2Hostname = {{db_host}} TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
+          "id": "575466918",
+          "title": "Average lock wait time (sec)",
+          "description": "Average lock wait time, calculated as total lock wait time divided by the number of lock waits since database activation (`0` when there were no waits). It is a lifetime average and moves slowly",
+          "layout": {
+            "column": 1,
+            "row": 10,
+            "width": 6,
+            "height": 3
+          },
+          "linkedEntityGuids": null,
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(lockWait)/1000 as 'avg lock wait time (sec)'  FROM Db2DatabaseSample where database = {{db_instance}} or db2Hostname = {{db_host}} TIMESERIES"
+              }
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
+          }
+        },
+        {
+          "id": "575466921",
           "title": "Transaction log used and available",
+          "description": "Active log space currently in use vs not used by uncommitted transactions.",
           "layout": {
             "column": 7,
-            "row": 7,
+            "row": 10,
             "width": 6,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.area"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "gradient": {
+                "enabled": false
+              },
+              "lineInterpolation": "linear",
+              "stacked": {
+                "enabled": true
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT average(logUsed), average(logAvailable) FROM Db2DatabaseSample TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(logUsed), average(logAvailable) FROM Db2DatabaseSample where database = {{db_instance}} or db2Hostname = {{db_host}} TIMESERIES"
               }
-            ]
-          }
-        },
-        {
-          "title": "Log writes and reads per interval",
-          "layout": {
-            "column": 1,
-            "row": 10,
-            "width": 12,
-            "height": 3
-          },
-          "visualization": {
-            "id": "viz.line"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT sum(logWrites), sum(logReads) FROM Db2DatabaseSample TIMESERIES"
-              }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            }
           }
         }
       ]
     },
     {
+      "guid": "Nzg3MTYxNHxWSVp8REFTSEJPQVJEfDUxNDA0MTIw",
       "name": "Bufferpools and tablespaces",
       "description": "Bufferpool hit ratios, tablespace utilization and state changes.",
       "widgets": [
         {
+          "id": "575466923",
           "title": "Bufferpool hit percent",
+          "description": "Hit percentage for data pages",
           "layout": {
             "column": 1,
             "row": 1,
             "width": 4,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT average(bufferpoolHitPercent) FROM Db2BufferpoolSample FACET bufferpoolName TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(bufferpoolHitPercent) FROM Db2BufferpoolSample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET bufferpoolName TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
+          "id": "575466924",
           "title": "Bufferpool data page hit percent",
+          "description": "Hit percentage for data pages",
           "layout": {
             "column": 5,
             "row": 1,
             "width": 4,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT average(bufferpoolDataHitPercent) FROM Db2BufferpoolSample FACET bufferpoolName TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(bufferpoolDataHitPercent) FROM Db2BufferpoolSample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET bufferpoolName TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
+          "id": "575466925",
           "title": "Bufferpool index page hit percent",
+          "description": "Hit percentage for index pages",
           "layout": {
             "column": 9,
             "row": 1,
             "width": 4,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT average(bufferpoolIndexHitPercent) FROM Db2BufferpoolSample FACET bufferpoolName TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT average(bufferpoolIndexHitPercent) FROM Db2BufferpoolSample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET bufferpoolName TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
-          "title": "Note on TEMPSPACE1",
+          "id": "575466927",
+          "title": "Tablespace utilized (%)",
+          "description": "TEMPSPACE1 always reports 100% utilized, so it is excluded from the tablespace utilization chart below.",
           "layout": {
             "column": 1,
             "row": 4,
-            "width": 12,
-            "height": 1
-          },
-          "visualization": {
-            "id": "viz.markdown"
-          },
-          "rawConfiguration": {
-            "text": "TEMPSPACE1 always reports 100% utilized, so it is excluded from the tablespace utilization chart below."
-          }
-        },
-        {
-          "title": "Tablespace utilized (%), excluding TEMPSPACE1",
-          "layout": {
-            "column": 1,
-            "row": 5,
             "width": 6,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.bar"
           },
           "rawConfiguration": {
+            "facet": {
+              "showOtherSeries": false
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT latest(tablespaceUtilized) FROM Db2TablespaceSample WHERE tablespaceName != 'TEMPSPACE1' FACET tablespaceName"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(tablespaceUtilized) FROM Db2TablespaceSample WHERE (database = {{db_instance}} or db2Hostname = {{db_host}}) and tablespaceName != 'TEMPSPACE1' FACET tablespaceName"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            }
           }
         },
         {
+          "id": "575466928",
           "title": "Tablespace state",
           "layout": {
             "column": 7,
-            "row": 5,
+            "row": 4,
             "width": 6,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.table"
           },
           "rawConfiguration": {
+            "facet": {
+              "showOtherSeries": false
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT latest(tablespaceState) FROM Db2TablespaceSample FACET tablespaceName"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(tablespaceState) FROM Db2TablespaceSample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET tablespaceName LIMIT 50"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            }
           }
         },
         {
+          "id": "575466929",
           "title": "Recent tablespace state changes",
           "layout": {
             "column": 1,
-            "row": 8,
+            "row": 7,
             "width": 12,
             "height": 3
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.table"
           },
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [],
+                "accountIds": [
+                  123
+                ],
                 "query": "SELECT summary, tablespaceName, previousTablespaceState, tablespaceState FROM InfrastructureEvent WHERE category = 'Db2TablespaceStateChange'"
               }
             ]
@@ -437,98 +973,182 @@
       ]
     },
     {
+      "guid": "Nzg3MTYxNHxWSVp8REFTSEJPQVJEfDUxNDA0MTIx",
       "name": "Diagnostic logs",
-      "description": "Db2 diagnostic log (db2diag) records by level, component and severity. Mode 1 (JSONL) only.",
+      "description": "Db2 diagnostic log (db2diag) records by level, component and severity.",
       "widgets": [
         {
+          "id": "575466930",
           "title": "What must be enabled",
           "layout": {
             "column": 1,
             "row": 1,
-            "width": 12,
+            "width": 2,
             "height": 2
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.markdown"
           },
           "rawConfiguration": {
-            "text": "These widgets show Mode 1 (JSONL) records only. Enable `COLLECT_DIAG_LOGS=true` on the integration (records are read remotely through `PD_GET_DIAG_HIST` and tailed from a local JSONL file by the agent) and activate the Mode 1 log config. Records from the on-host `db2diag.log` tail (Mode 2) do not carry the `level`, `component` and `diagMessage` attributes these widgets use, so they do not appear here. The widgets are empty until Mode 1 is on."
+            "text": "Diagnostic log widgets need Db2 diag records in New Relic Logs. Enable either `COLLECT_DIAG_LOGS=true` on the integration (records are read remotely through `PD_GET_DIAG_HIST` and tailed from a local JSONL file by the agent) or the on-host `db2diag.log` tail example. These widgets are empty until one of them is on."
           }
         },
         {
-          "title": "Diagnostic records by level (Mode 1 only)",
+          "id": "575466931",
+          "title": "Diagnostic records by level",
           "layout": {
-            "column": 1,
-            "row": 3,
-            "width": 12,
-            "height": 3
+            "column": 3,
+            "row": 1,
+            "width": 10,
+            "height": 2
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "colors": {
+              "colorPalette": "consistent",
+              "seriesOverrides": [
+                {
+                  "color": "#db1a1a",
+                  "seriesName": "Error"
+                },
+                {
+                  "color": "#d2cc1e",
+                  "seriesName": "Warning"
+                },
+                {
+                  "color": "#1131b0",
+                  "seriesName": "Event"
+                },
+                {
+                  "color": "#1cca27",
+                  "seriesName": "Info"
+                }
+              ]
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT count(*) FROM Log WHERE logtype = 'db2diag' FACET level TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT count(*) FROM Log where database = {{db_instance}} or db2Hostname = {{db_host}} WHERE logtype = 'db2diag' FACET level TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         },
         {
-          "title": "Recent Error and Severe records (Mode 1 only)",
+          "id": "575466933",
+          "title": "Diagnostic records by component",
           "layout": {
             "column": 1,
-            "row": 6,
-            "width": 12,
+            "row": 3,
+            "width": 4,
             "height": 4
           },
-          "visualization": {
-            "id": "viz.table"
-          },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [],
-                "query": "SELECT recordId, level, function, diagMessage FROM Log WHERE logtype = 'db2diag' AND level IN ('Error','Severe') LIMIT 50"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Diagnostic records by component (Mode 1 only)",
-          "layout": {
-            "column": 1,
-            "row": 10,
-            "width": 12,
-            "height": 3
-          },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.bar"
           },
           "rawConfiguration": {
+            "facet": {
+              "showOtherSeries": false
+            },
+            "linkedEntityGuids": [
+              "{{selfEntity}}"
+            ],
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT count(*) FROM Log WHERE logtype = 'db2diag' FACET component"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT count(*) FROM Log WHERE logtype = 'db2diag' and (database = {{db_instance}} or db2Hostname = {{db_host}}) FACET component LIMIT 25"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            }
+          }
+        },
+        {
+          "id": "575466932",
+          "title": "Recent Error and Severe records",
+          "layout": {
+            "column": 5,
+            "row": 3,
+            "width": 8,
+            "height": 4
+          },
+          "linkedEntityGuids": null,
+          "visualization": {
+            "id": "logger.log-table-widget"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT recordId, level, function, diagMessage FROM Log WHERE logtype = 'db2diag' AND level IN ('Error','Severe') and (database = {{db_instance}} or db2Hostname = {{db_host}}) LIMIT 50"
+              }
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            }
           }
         }
       ]
     },
     {
+      "guid": "Nzg3MTYxNHxWSVp8REFTSEJPQVJEfDUxNDA0MTIy",
       "name": "Extras",
       "description": "Top SQL, long-running statements and lock waits. Requires the optional collectors.",
       "widgets": [
         {
+          "id": "575466934",
           "title": "What must be enabled",
           "layout": {
             "column": 1,
             "row": 1,
-            "width": 12,
+            "width": 2,
             "height": 2
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.markdown"
           },
@@ -537,86 +1157,204 @@
           }
         },
         {
+          "id": "575466935",
           "title": "Top SQL by total activity time",
           "layout": {
-            "column": 1,
-            "row": 3,
-            "width": 12,
+            "column": 3,
+            "row": 1,
+            "width": 10,
             "height": 4
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.table"
           },
           "rawConfiguration": {
+            "facet": {
+              "showOtherSeries": false
+            },
+            "hiddenColumns": [
+              {
+                "columnName": "executableId"
+              }
+            ],
+            "initialSorting": {
+              "direction": "desc",
+              "name": "Total Act Time"
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT latest(statementText), latest(numExecutions), latest(totalActTime), latest(avgActTime), latest(totalCpuTime), latest(rowsRead) FROM Db2TopQuerySample FACET executableId ORDER BY max(totalActTime) LIMIT 20"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(statementText), latest(numExecutions) as '# Executions', latest(totalActTime)/1000 as 'Total execution time (sec)', latest(avgActTime)/1000 as 'Avg execution time (sec)', latest(totalCpuTime)/1000 as 'Total CPU time (sec)', latest(totalActWaitTime)/1000 as 'Total wait time (sec)', latest(rowsRead) as 'Total rows read', latest(rowsReturned) as 'Total rows returned' FROM Db2TopQuerySample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET executableId ORDER BY max(totalActTime) LIMIT 25"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            }
           }
         },
         {
+          "id": "575466936",
           "title": "Long-running SQL",
           "layout": {
             "column": 1,
-            "row": 7,
+            "row": 5,
             "width": 12,
             "height": 4
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.table"
           },
           "rawConfiguration": {
+            "facet": {
+              "showOtherSeries": false
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT latest(elapsedSeconds), latest(applicationName), latest(activityState), latest(statementText) FROM Db2LongRunningQuerySample FACET applicationHandle"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(elapsedSeconds), latest(applicationName), latest(activityState), latest(statementText) FROM Db2LongRunningQuerySample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET applicationHandle"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            }
           }
         },
         {
+          "id": "575466937",
           "title": "Current lock waits",
           "layout": {
             "column": 1,
-            "row": 11,
+            "row": 9,
             "width": 6,
             "height": 4
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.table"
           },
           "rawConfiguration": {
+            "facet": {
+              "showOtherSeries": false
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT latest(waitSeconds), latest(holderApplicationHandle), latest(lockMode), latest(lockModeRequested), latest(lockObjectType) FROM Db2LockWaitSample FACET applicationHandle"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT latest(waitSeconds), latest(holderApplicationHandle), latest(lockMode), latest(lockModeRequested), latest(lockObjectType) FROM Db2LockWaitSample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET applicationHandle"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            }
           }
         },
         {
+          "id": "575466938",
           "title": "Lock wait seconds over time",
           "layout": {
             "column": 7,
-            "row": 11,
+            "row": 9,
             "width": 6,
             "height": 4
           },
+          "linkedEntityGuids": null,
           "visualization": {
             "id": "viz.line"
           },
           "rawConfiguration": {
+            "chartStyles": {
+              "lineInterpolation": "linear",
+              "lineWidths": {
+                "lineWidth": 2.25
+              }
+            },
+            "facet": {
+              "showOtherSeries": false
+            },
+            "legend": {
+              "enabled": true
+            },
+            "markers": {
+              "displayedTypes": {
+                "annotations": true,
+                "criticalViolations": false,
+                "deployments": true,
+                "relatedDeployments": true,
+                "warningViolations": false
+              }
+            },
             "nrqlQueries": [
               {
-                "accountIds": [],
-                "query": "SELECT max(waitSeconds) FROM Db2LockWaitSample FACET applicationHandle TIMESERIES"
+                "accountIds": [
+                  123
+                ],
+                "query": "SELECT max(waitSeconds) as 'Wait (sec)' FROM Db2LockWaitSample where database = {{db_instance}} or db2Hostname = {{db_host}} FACET applicationHandle TIMESERIES"
               }
-            ]
+            ],
+            "platformOptions": {
+              "ignoreTimeRange": false
+            },
+            "thresholds": {
+              "isLabelVisible": true
+            },
+            "yAxisLeft": {
+              "zero": true
+            },
+            "yAxisRight": {
+              "zero": true
+            }
           }
         }
       ]
+    }
+  ],
+  "variables": [
+    {
+      "name": "db_instance",
+      "items": null,
+      "defaultValues": [],
+      "nrqlQuery": {
+        "accountIds": [
+          123
+        ],
+        "query": "FROM Db2DatabaseSample SELECT uniques(database)"
+      },
+      "options": {
+        "hiddenOnVariablesBar": false,
+        "ignoreTimeRange": true,
+        "excluded": false
+      },
+      "title": "Database",
+      "type": "NRQL",
+      "isMultiSelection": false,
+      "replacementStrategy": "STRING"
+    },
+    {
+      "name": "db_host",
+      "items": null,
+      "defaultValues": [],
+      "nrqlQuery": {
+        "accountIds": [
+          123
+        ],
+        "query": "FROM Db2DatabaseSample SELECT uniques(db2Hostname)"
+      },
+      "options": {
+        "hiddenOnVariablesBar": false,
+        "ignoreTimeRange": true,
+        "excluded": false
+      },
+      "title": "Hostname",
+      "type": "NRQL",
+      "isMultiSelection": false,
+      "replacementStrategy": "STRING"
     }
   ]
 }
