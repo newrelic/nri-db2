@@ -2,6 +2,53 @@
 
 # New Relic DB2 Integration
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Requirements](#requirements)
+  - [System Requirements](#system-requirements)
+  - [New Relic Requirements](#new-relic-requirements)
+  - [DB2 Requirements](#db2-requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [Integration Config](#integration-config)
+  - [Environment Variables](#environment-variables)
+  - [Secrets](#secrets)
+  - [TLS](#tls)
+  - [Password Rules](#password-rules)
+  - [Custom Queries](#custom-queries)
+  - [Top SQL, Long-Running SQL and Lock Waits](#top-sql-long-running-sql-and-lock-waits)
+  - [Diagnostic Logs](#diagnostic-logs)
+    - [Mode 1: Remote Collection Through SQL](#mode-1-remote-collection-through-sql)
+    - [Mode 2: On-Host Tail of db2diag.log](#mode-2-on-host-tail-of-db2diaglog)
+  - [Inventory](#inventory)
+  - [State Store](#state-store)
+- [Data Collection](#data-collection)
+  - [Db2DatabaseSample](#db2databasesample)
+  - [Db2BufferpoolSample](#db2bufferpoolsample)
+  - [Db2TablespaceSample](#db2tablespacesample)
+  - [Db2CustomSample](#db2customsample)
+  - [Db2TopQuerySample](#db2topquerysample)
+  - [Db2LongRunningQuerySample](#db2longrunningquerysample)
+  - [Db2LockWaitSample](#db2lockwaitsample)
+  - [Tablespace State-Change Event](#tablespace-state-change-event)
+  - [Inventory Items](#inventory-items)
+  - [Diagnostic Log Attributes](#diagnostic-log-attributes)
+- [Usage](#usage)
+  - [NRQL Examples](#nrql-examples)
+  - [Dashboard](#dashboard)
+- [Troubleshooting](#troubleshooting)
+  - [Common Issues](#common-issues)
+  - [Debug Mode](#debug-mode)
+- [Building](#building)
+  - [Prerequisites](#prerequisites)
+  - [Steps](#steps)
+- [Support](#support)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Overview
 
 This integration enables remote monitoring of IBM DB2.
