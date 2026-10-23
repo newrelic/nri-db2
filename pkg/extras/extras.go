@@ -32,10 +32,10 @@ type NewSet func(sample string, dims ...attribute.Attribute) *metric.Set
 
 // TopQueries writes one Db2TopQuerySample per package-cache statement, keyed by executableId and
 // member, and returns the number written. The averages exist only for a statement that has run.
-func TopQueries(query string, rows []queries.Row, newSet NewSet) int {
+func TopQueries(query string, rows []queries.Row, newSet NewSet, stripLiterals bool) int {
 	written := 0
 	for _, row := range rows {
-		b := builder{query: query, row: row}
+		b := builder{query: query, row: row, strip: stripLiterals}
 		dims, ok := b.dimensions(dim{"executable_id", "executableId"}, dim{"member", "member"})
 		if !ok {
 			continue
@@ -66,10 +66,10 @@ func TopQueries(query string, rows []queries.Row, newSet NewSet) int {
 // number written. The elapsed time is NOW_TS - LOCAL_START_TIME from the same row (one clock), never below zero.
 // The threshold is checked here again, because the SQL prefilter and this check read different clocks;
 // a row whose times are missing cannot be checked and is skipped.
-func LongRunning(query string, rows []queries.Row, thresholdSeconds int, newSet NewSet) int {
+func LongRunning(query string, rows []queries.Row, thresholdSeconds int, newSet NewSet, stripLiterals bool) int {
 	written := 0
 	for _, row := range rows {
-		b := builder{query: query, row: row}
+		b := builder{query: query, row: row, strip: stripLiterals}
 		dims, ok := b.dimensions(
 			dim{"application_handle", "applicationHandle"}, dim{"uow_id", "uowId"},
 			dim{"activity_id", "activityId"}, dim{"member", "member"})
@@ -148,6 +148,8 @@ type builder struct {
 	ms    *metric.Set
 	query string
 	row   queries.Row
+	// strip removes literal values and comments from the statement text.
+	strip bool
 }
 
 // dim names a column that is part of a sample's identity and the attribute it is published as.
@@ -194,12 +196,16 @@ func (b builder) attribute(col, name string) {
 	b.set(name, v, metric.ATTRIBUTE)
 }
 
-// text sets the statement text, cut to queries.TextLimit characters.
+// text sets the statement text, cut to queries.TextLimit characters. With strip, literal values
+// and comments are removed first (see StripLiterals), so the text can only get shorter.
 func (b builder) text(col, name string) {
 	v, ok := b.str(col)
 	if !ok {
 		log.Debug("%s.%s is NULL or empty: %s skipped", b.query, col, name)
 		return
+	}
+	if b.strip {
+		v = StripLiterals(v)
 	}
 	if v = truncate(v, queries.TextLimit); v != "" {
 		b.set(name, v, metric.ATTRIBUTE)

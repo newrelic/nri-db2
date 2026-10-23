@@ -69,6 +69,8 @@ type Config struct {
 	CollectLongRunningQueries   bool
 	LongRunningThresholdSeconds int
 	CollectLockWaits            bool
+	// StripSQLLiterals replaces literal values and comments in statementText with placeholders.
+	StripSQLLiterals bool
 
 	CollectDiagLogs      bool
 	DiagLogDir           string

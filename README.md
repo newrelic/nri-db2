@@ -193,6 +193,7 @@ integrations:
       # COLLECT_LONG_RUNNING_QUERIES: true
       # LONG_RUNNING_THRESHOLD_SECONDS: 60
       # COLLECT_LOCK_WAITS: true
+      # STRIP_SQL_LITERALS: true
 
       # db2diag.log collection through PD_GET_DIAG_HIST (opt-in). Also copy
       # db2-diag-jsonl-log.yml.example to /etc/newrelic-infra/logging.d/db2-diag-jsonl-log.yml.
@@ -252,6 +253,7 @@ These are the integration's own settings. All of them are set in the `env:` map.
 | `COLLECT_LONG_RUNNING_QUERIES` | `false` | Enable long-running SQL collection (`Db2LongRunningQuerySample`). |
 | `LONG_RUNNING_THRESHOLD_SECONDS` | `60` | Report activities that have been running longer than this many seconds (minimum 1). |
 | `COLLECT_LOCK_WAITS` | `false` | Enable lock-wait collection (`Db2LockWaitSample`). |
+| `STRIP_SQL_LITERALS` | `true` | Replace literal values and comments in `statementText` (top SQL and long-running SQL) with placeholders before it is sent. Set to `false` to send the raw text. See the [privacy note](#extras-top-sql-long-running-sql-and-lock-waits). |
 | `COLLECT_DIAG_LOGS` | `false` | Collect `db2diag.log` records through `SYSPROC.PD_GET_DIAG_HIST` and write them as JSONL files. |
 | `DIAG_LOG_DIR` | `/var/log/nri-db2` | Directory for the diagnostic JSONL files. Should be creatable and writable when `COLLECT_DIAG_LOGS` is true. If it is not (or the path is invalid), the integration logs a warning and skips diagnostic collection for that run; the metrics and `canConnect` are still published. |
 | `DIAG_FACILITY` | `MAIN` | Diagnostic facility: `MAIN`, `OPTSTATS` or `ALL`. |
@@ -399,7 +401,15 @@ The grants are present, commented out, in `sql/grants.sql`. Uncomment the ones y
 - **Lock waits** returns one sample per application currently waiting for a lock, up to 100 per run, with the holder's application handle.
 - **Multiple members.** The three functions are called for all members. Top SQL and long-running SQL samples carry a `member` dimension, so the same `executableId` or activity on two members stays two samples. Lock-wait samples are keyed by the waiting `applicationHandle` only; an application with several waiting agents (parallel queries or several members) could share one sample. Multi-member databases have not been tested.
 
-**Privacy note:** `statementText` is the raw SQL text, cut to 4094 characters. Statements can contain literal values such as names, numbers or other business data, and that text is sent to New Relic. Enable `COLLECT_TOP_QUERIES` and `COLLECT_LONG_RUNNING_QUERIES` only if that is acceptable for your data.
+**Privacy note:** `statementText` is cut to 4094 characters. By default (`STRIP_SQL_LITERALS: true`) the integration removes the values before the text leaves the host:
+
+- String literals (including `X'..'`, `N'..'`, `G'..'` and `U&'..'`) and numbers become `?`. Typed literals keep their keyword, so `TIMESTAMP '2024-01-01'` becomes `TIMESTAMP ?`.
+- Comments (`/* ... */` and `-- ...`) are removed.
+- A list of two or more values after `IN` collapses to one placeholder: `IN (1, 2, 3)` becomes `IN (?)`.
+- Identifiers are kept: schema, table and column names, delimited identifiers (`"..."`), host variables (`:name`) and existing `?` markers.
+- A string that is cut at the 4094-character limit before its closing quote becomes `?` as well.
+
+This is a best-effort scanner, not a SQL parser, and not a guarantee. Names that you put in identifiers or in application names are still sent. Statements that the application builds from user input are covered, because the values sit in literals. With `STRIP_SQL_LITERALS: false` the raw text is sent, including any names, numbers or other business data in it, and comments are kept. Enable `COLLECT_TOP_QUERIES` and `COLLECT_LONG_RUNNING_QUERIES` only if what remains is acceptable for your data.
 
 ### Diagnostic Logs
 
@@ -583,7 +593,7 @@ Published when `COLLECT_TOP_QUERIES` is `true`. One sample per statement and mem
 |-----------|------|-------------|
 | `executableId` | attribute | Executable ID of the statement in the package cache. Db2 reports an opaque binary token; the integration shows it as hexadecimal. |
 | `member` | attribute | Database member that holds the package cache entry. `0` on a single-member database. |
-| `statementText` | attribute | Statement text, cut to 4094 characters. May contain literal values; see the [privacy note](#extras-top-sql-long-running-sql-and-lock-waits). |
+| `statementText` | attribute | Statement text, cut to 4094 characters. Literal values and comments are replaced by default; see the [privacy note](#extras-top-sql-long-running-sql-and-lock-waits). |
 | `sectionType` | attribute | Section type of the statement: `D` for a dynamic SQL statement, `S` for a static one. |
 | `numExecutions` | gauge | Number of times the statement was executed. |
 | `totalActTime` | gauge | Total time spent executing the statement, in milliseconds. |
@@ -610,7 +620,7 @@ Published when `COLLECT_LONG_RUNNING_QUERIES` is `true`, for activities that sta
 | `activityType` | attribute | Activity type: `CALL`, `DDL`, `LOAD`, `OTHER`, `READ_DML` or `WRITE_DML`. |
 | `applicationName` | attribute | Name of the application that submitted the activity. |
 | `executableId` | attribute | Executable ID of the statement, as hexadecimal. Absent when the activity is not an SQL statement. |
-| `statementText` | attribute | Statement text, cut to 4094 characters. May contain literal values. |
+| `statementText` | attribute | Statement text, cut to 4094 characters. Literal values and comments are replaced by default (`STRIP_SQL_LITERALS`); see the [privacy note](#extras-top-sql-long-running-sql-and-lock-waits). |
 | `totalCpuTime` | gauge | CPU time that Db2 reports for the activity, in milliseconds (converted from microseconds). |
 | `rowsRead` | gauge | Rows read by the activity, as reported by Db2. |
 | `rowsReturned` | gauge | Rows returned to the application, as reported by Db2. Db2 can report `0` for an activity that is still executing. |
