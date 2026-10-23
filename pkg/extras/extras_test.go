@@ -73,7 +73,7 @@ func topRow(over queries.Row) queries.Row {
 
 func TestTopQueriesMapping(t *testing.T) {
 	r := newRecorder(t)
-	if n := TopQueries(queries.TopQueriesName, []queries.Row{topRow(nil)}, r.newSet); n != 1 {
+	if n := TopQueries(queries.TopQueriesName, []queries.Row{topRow(nil)}, r.newSet, false); n != 1 {
 		t.Fatalf("wrote %d samples, want 1", n)
 	}
 	if want := (call{Db2TopQuerySample, "executableId=0100000000000000AB,member=0"}); r.calls[0] != want {
@@ -113,7 +113,7 @@ func TestTopQueriesAverages(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := newRecorder(t)
-			if n := TopQueries("q", []queries.Row{topRow(tt.over)}, r.newSet); n != tt.wantSample {
+			if n := TopQueries("q", []queries.Row{topRow(tt.over)}, r.newSet, false); n != tt.wantSample {
 				t.Fatalf("wrote %d samples, want %d", n, tt.wantSample)
 			}
 			ms := r.sets[0]
@@ -138,7 +138,7 @@ func TestTopQueriesNullsAndMissingDimension(t *testing.T) {
 		topRow(queries.Row{"executable_id": "DD", "member": nil}), // no member: skipped
 	}
 	r := newRecorder(t)
-	if n := TopQueries("q", rows, r.newSet); n != 2 {
+	if n := TopQueries("q", rows, r.newSet, false); n != 2 {
 		t.Fatalf("wrote %d samples, want 2", n)
 	}
 	if len(r.calls) != 2 || r.calls[0].dims != "executableId=BB,member=0" || r.calls[1].dims != "executableId=CC,member=0" {
@@ -164,7 +164,7 @@ func TestTopQueriesSameExecutableOnTwoMembers(t *testing.T) {
 		topRow(queries.Row{"member": int64(1)}),
 	}
 	r := newRecorder(t)
-	if n := TopQueries("q", rows, r.newSet); n != 2 {
+	if n := TopQueries("q", rows, r.newSet, false); n != 2 {
 		t.Fatalf("wrote %d samples, want 2", n)
 	}
 	if r.calls[0] == r.calls[1] {
@@ -175,7 +175,7 @@ func TestTopQueriesSameExecutableOnTwoMembers(t *testing.T) {
 func TestTopQueriesTruncatesText(t *testing.T) {
 	r := newRecorder(t)
 	row := topRow(queries.Row{"stmt_text": strings.Repeat("x", 6000) + "\xff"})
-	TopQueries("q", []queries.Row{row}, r.newSet)
+	TopQueries("q", []queries.Row{row}, r.newSet, false)
 	got, _ := r.sets[0].Metrics["statementText"].(string)
 	if len([]rune(got)) != queries.TextLimit {
 		t.Errorf("statementText has %d runes, want %d", len([]rune(got)), queries.TextLimit)
@@ -208,7 +208,7 @@ func activityRow(handle any, startAgo time.Duration, over queries.Row) queries.R
 func TestLongRunningMapping(t *testing.T) {
 	r := newRecorder(t)
 	rows := []queries.Row{activityRow(int64(4242), 90*time.Second, nil)}
-	if n := LongRunning(queries.LongRunningName, rows, 60, r.newSet); n != 1 {
+	if n := LongRunning(queries.LongRunningName, rows, 60, r.newSet, false); n != 1 {
 		t.Fatalf("wrote %d samples, want 1", n)
 	}
 	if want := (call{Db2LongRunningQuerySample, "applicationHandle=4242,uowId=7,activityId=1,member=0"}); r.calls[0] != want {
@@ -242,7 +242,7 @@ func TestLongRunningThreshold(t *testing.T) {
 		activityRow(nil, time.Hour, nil),
 	}
 	r := newRecorder(t)
-	if n := LongRunning("q", rows, 60, r.newSet); n != 2 {
+	if n := LongRunning("q", rows, 60, r.newSet, false); n != 2 {
 		t.Fatalf("wrote %d samples, want 2 (calls %v)", n, r.calls)
 	}
 	if r.calls[0].dims != "applicationHandle=2,uowId=7,activityId=1,member=0" ||
@@ -255,7 +255,7 @@ func TestLongRunningThreshold(t *testing.T) {
 
 	// A threshold of 0 reports the clamped row too.
 	r = newRecorder(t)
-	if n := LongRunning("q", rows[3:4], 0, r.newSet); n != 1 {
+	if n := LongRunning("q", rows[3:4], 0, r.newSet, false); n != 1 {
 		t.Fatalf("threshold 0 wrote %d samples, want 1", n)
 	}
 	if got := r.sets[0].Metrics["elapsedSeconds"]; got != 0.0 {
@@ -268,7 +268,7 @@ func TestLongRunningNulls(t *testing.T) {
 	row := activityRow(int64(8), time.Minute, queries.Row{
 		"total_cpu_time": nil, "stmt_text": nil, "application_name": nil,
 	})
-	if n := LongRunning("q", []queries.Row{row}, 60, r.newSet); n != 1 {
+	if n := LongRunning("q", []queries.Row{row}, 60, r.newSet, false); n != 1 {
 		t.Fatalf("wrote %d samples, want 1", n)
 	}
 	ms := r.sets[0]
@@ -297,7 +297,7 @@ func TestLongRunningIdentity(t *testing.T) {
 		activityRow(int64(5), time.Hour, queries.Row{"member": nil}),                               // skipped
 	}
 	r := newRecorder(t)
-	if n := LongRunning("q", rows, 60, r.newSet); n != 4 {
+	if n := LongRunning("q", rows, 60, r.newSet, false); n != 4 {
 		t.Fatalf("wrote %d samples, want 4 (calls %v)", n, r.calls)
 	}
 	seen := map[call]bool{}
@@ -360,5 +360,51 @@ func TestLockWaits(t *testing.T) {
 	}
 	if _, ok := r.sets[2].Metrics["lockName"]; !ok {
 		t.Error("lockName missing: a NULL column must only skip its own metric")
+	}
+}
+
+const (
+	rawText      = "/* app=billing */ SELECT * FROM T1 WHERE NAME = 'Jane Doe' AND ID IN (1, 2, 3) AND AGE > 42"
+	strippedText = "SELECT * FROM T1 WHERE NAME = ? AND ID IN (?) AND AGE > ?"
+)
+
+// With stripping on, the literals and comments of both statement texts are replaced; with it off the
+// text is published as read.
+func TestStatementTextStripping(t *testing.T) {
+	for _, strip := range []bool{true, false} {
+		want := rawText
+		if strip {
+			want = strippedText
+		}
+		r := newRecorder(t)
+		TopQueries("q", []queries.Row{topRow(queries.Row{"stmt_text": rawText})}, r.newSet, strip)
+		LongRunning("q", []queries.Row{activityRow(int64(1), 90*time.Second, queries.Row{"stmt_text": rawText})}, 60, r.newSet, strip)
+		if len(r.sets) != 2 {
+			t.Fatalf("strip=%t: %d sets, want 2", strip, len(r.sets))
+		}
+		for _, ms := range r.sets {
+			if got := ms.Metrics["statementText"]; got != want {
+				t.Errorf("strip=%t: statementText = %q, want %q", strip, got, want)
+			}
+		}
+	}
+}
+
+// A statement that is only a comment has no text left, so the attribute is absent.
+func TestStatementTextStrippedToNothing(t *testing.T) {
+	r := newRecorder(t)
+	TopQueries("q", []queries.Row{topRow(queries.Row{"stmt_text": "/* only a comment */"})}, r.newSet, true)
+	if _, ok := r.sets[0].Metrics["statementText"]; ok {
+		t.Error("statementText is set, want it absent")
+	}
+}
+
+// The SQL cuts the text at TextLimit, which can leave an open string at the end. It must not leak.
+func TestStatementTextCutInsideLiteral(t *testing.T) {
+	r := newRecorder(t)
+	cut := "SELECT * FROM T WHERE NAME = 'Jane Do"
+	TopQueries("q", []queries.Row{topRow(queries.Row{"stmt_text": cut})}, r.newSet, true)
+	if got := r.sets[0].Metrics["statementText"]; got != "SELECT * FROM T WHERE NAME = ?" {
+		t.Errorf("statementText = %q", got)
 	}
 }

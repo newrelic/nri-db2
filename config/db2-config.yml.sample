@@ -37,6 +37,8 @@ integrations:
       # COLLECT_LONG_RUNNING_QUERIES: true
       # LONG_RUNNING_THRESHOLD_SECONDS: 60
       # COLLECT_LOCK_WAITS: true
+      # Replace literals and comments in statementText with placeholders (default true).
+      # STRIP_SQL_LITERALS: true
 
       # db2diag.log collection through PD_GET_DIAG_HIST (opt-in). Also copy
       # db2-diag-jsonl-log.yml.example to /etc/newrelic-infra/logging.d/db2-diag-jsonl-log.yml.

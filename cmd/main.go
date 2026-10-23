@@ -69,6 +69,7 @@ type argumentList struct {
 	CollectLongRunningQueries   bool `default:"false" help:"Enable long-running SQL collection."`
 	LongRunningThresholdSeconds int  `default:"60" help:"Report activities running longer than this many seconds."`
 	CollectLockWaits            bool `default:"false" help:"Enable lock-wait collection."`
+	StripSqlLiterals            bool `default:"true" help:"Replace literal values and comments in statementText with placeholders."`
 
 	CollectDiagLogs      bool   `default:"false" help:"Collect db2diag.log records through SYSPROC.PD_GET_DIAG_HIST."`
 	DiagLogDir           string `default:"/var/log/nri-db2" help:"Directory for the diag JSONL output."`
@@ -102,6 +103,7 @@ func (a *argumentList) config() config.Config {
 		CollectLongRunningQueries:   a.CollectLongRunningQueries,
 		LongRunningThresholdSeconds: a.LongRunningThresholdSeconds,
 		CollectLockWaits:            a.CollectLockWaits,
+		StripSQLLiterals:            a.StripSqlLiterals,
 		CollectDiagLogs:             a.CollectDiagLogs,
 		DiagLogDir:                  a.DiagLogDir,
 		DiagFacility:                strings.ToUpper(strings.TrimSpace(a.DiagFacility)),

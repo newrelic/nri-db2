@@ -22,12 +22,14 @@ func collectExtras(fetch fetchFunc, cfg config.Config, newSet extras.NewSet) (se
 	}{
 		{
 			cfg.CollectTopQueries, queries.TopQueriesName, queries.TopQueries(cfg.TopQueriesLimit),
-			func(r []queries.Row) int { return extras.TopQueries(queries.TopQueriesName, r, newSet) },
+			func(r []queries.Row) int {
+				return extras.TopQueries(queries.TopQueriesName, r, newSet, cfg.StripSQLLiterals)
+			},
 		},
 		{
 			cfg.CollectLongRunningQueries, queries.LongRunningName, queries.LongRunning(cfg.LongRunningThresholdSeconds),
 			func(r []queries.Row) int {
-				return extras.LongRunning(queries.LongRunningName, r, cfg.LongRunningThresholdSeconds, newSet)
+				return extras.LongRunning(queries.LongRunningName, r, cfg.LongRunningThresholdSeconds, newSet, cfg.StripSQLLiterals)
 			},
 		},
 		{

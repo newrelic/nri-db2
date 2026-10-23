@@ -132,3 +132,52 @@ func TestCollectExtrasEmpty(t *testing.T) {
 		t.Error("collectExtras() = false, want true")
 	}
 }
+
+// STRIP_SQL_LITERALS reaches the statement text of the top SQL and long-running samples.
+func TestCollectExtrasStripsLiterals(t *testing.T) {
+	now := time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)
+	const raw = "SELECT * FROM T WHERE NAME = 'Jane Doe' AND ID = 42"
+	rows := map[string][]queries.Row{
+		queries.TopQueries(5): {{"member": int64(0), "executable_id": "AA", "stmt_text": raw}},
+		queries.LongRunning(60): {{
+			"member": int64(0), "application_handle": int64(9), "uow_id": int64(1), "activity_id": int64(1),
+			"local_start_time": now.Add(-time.Hour), "now_ts": now, "stmt_text": raw,
+		}},
+	}
+	for _, strip := range []bool{true, false} {
+		want := raw
+		if strip {
+			want = "SELECT * FROM T WHERE NAME = ? AND ID = ?"
+		}
+		cfg := config.Config{
+			CollectTopQueries: true, CollectLongRunningQueries: true,
+			TopQueriesLimit: 5, LongRunningThresholdSeconds: 60, StripSQLLiterals: strip,
+		}
+		i, err := integration.New("test", "0.0.0", integration.InMemoryStore())
+		if err != nil {
+			t.Fatal(err)
+		}
+		e, err := i.Entity("db2/TESTDB", "db2-instance")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var sets []*metric.Set
+		newSet := func(sample string, dims ...attribute.Attribute) *metric.Set {
+			ms := e.NewMetricSet(sample, dims...)
+			sets = append(sets, ms)
+			return ms
+		}
+		fetch := func(q string) ([]queries.Row, error) { return rows[q], nil }
+		if !collectExtras(fetch, cfg, newSet) {
+			t.Fatal("collectExtras() = false, want true")
+		}
+		if len(sets) != 2 {
+			t.Fatalf("strip=%t: %d sets, want 2", strip, len(sets))
+		}
+		for _, ms := range sets {
+			if got := ms.Metrics["statementText"]; got != want {
+				t.Errorf("strip=%t: statementText = %q, want %q", strip, got, want)
+			}
+		}
+	}
+}
