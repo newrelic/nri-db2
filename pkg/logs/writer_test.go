@@ -3,6 +3,7 @@ package logs
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -55,7 +56,8 @@ func TestRotation(t *testing.T) {
 	if strings.Contains(string(old), "first") || !strings.Contains(string(old), "third") {
 		t.Errorf(".1 not replaced: %q", old)
 	}
-	if st, err := os.Stat(path); err != nil || st.Mode().Perm() != 0o640 {
+	// Windows reports 0666 for every file, so the mode is checked elsewhere only.
+	if st, err := os.Stat(path); err != nil || (runtime.GOOS != "windows" && st.Mode().Perm() != 0o640) {
 		t.Errorf("mode = %v, %v", st, err)
 	}
 }

@@ -42,7 +42,7 @@ func (w *Writer) Open() error {
 	}
 	path := filepath.Join(w.Dir, w.Name)
 	if st, err := os.Stat(path); err == nil && st.Size() >= w.MaxBytes {
-		if err := os.Rename(path, path+".1"); err != nil {
+		if err := rotate(path); err != nil {
 			return err
 		}
 	}

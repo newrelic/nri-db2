@@ -31,6 +31,9 @@ func Open(dsn DSN) (*sql.DB, error) {
 	if err := ensureConnRetriesEnv(os.LookupEnv, os.Setenv); err != nil {
 		return nil, fmt.Errorf("set %s: %w", connRetriesEnv, err)
 	}
+	if err := preflight(); err != nil {
+		return nil, err
+	}
 	db, err := sql.Open(driverName, dsn.Raw())
 	if err != nil {
 		return nil, err

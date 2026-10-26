@@ -105,7 +105,7 @@ func (a *argumentList) config() config.Config {
 		CollectLockWaits:            a.CollectLockWaits,
 		StripSQLLiterals:            a.StripSqlLiterals,
 		CollectDiagLogs:             a.CollectDiagLogs,
-		DiagLogDir:                  a.DiagLogDir,
+		DiagLogDir:                  resolveDiagLogDir(a.DiagLogDir),
 		DiagFacility:                strings.ToUpper(strings.TrimSpace(a.DiagFacility)),
 		DiagRecType:                 strings.ToUpper(strings.TrimSpace(a.DiagRectype)),
 		DiagMinImpact:               strings.ToUpper(strings.TrimSpace(a.DiagMinImpact)),

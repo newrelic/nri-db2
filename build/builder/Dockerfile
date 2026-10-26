@@ -3,6 +3,8 @@
 # clidriver 12.1.4 needs glibc >= 2.34 to link, so the project builds only on this baseline.
 # clidriver 11.5.9 does not verify the TLS server hostname, so it is not used.
 #
+# The Windows build (make windows-amd64) also runs in this image but does not use cgo or clidriver.
+#
 # Build the image (from the repo root):
 #   docker build --platform=linux/amd64 -t nri-db2-builder:22.04 build/builder
 #

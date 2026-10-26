@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -86,7 +87,16 @@ func TestCollectDiagNeedsStore(t *testing.T) {
 func TestCollectDiagUnwritableDirIsWarning(t *testing.T) {
 	src := &stubSource{now: time.Unix(0, 0).UTC()}
 	store := persist.NewInMemoryStore()
-	cfg := diagConfig("/dev/null/sub")
+	unwritable := "/dev/null/sub"
+	if runtime.GOOS == "windows" {
+		// /dev/null/sub is creatable on Windows; a directory below a regular file is not.
+		file := filepath.Join(t.TempDir(), "file")
+		if err := os.WriteFile(file, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		unwritable = filepath.Join(file, "sub")
+	}
+	cfg := diagConfig(unwritable)
 	collectDiag(src, store, cfg) // seed
 	src.rows = []queries.Row{{"timestamp": time.Unix(5, 0).UTC(), "fullrec": "x"}}
 	collectDiag(src, store, cfg) // Open fails, must only warn

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -172,8 +173,8 @@ func TestCheckDiagDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The mode is masked by the umask, which can only remove bits.
-	if got := st.Mode().Perm(); got&^0o750 != 0 {
+	// The mode is masked by the umask, which can only remove bits. Windows reports 0777.
+	if got := st.Mode().Perm(); runtime.GOOS != "windows" && got&^0o750 != 0 {
 		t.Errorf("directory mode %o has bits outside 0750", got)
 	}
 	entries, err := os.ReadDir(c.DiagLogDir)
@@ -182,6 +183,14 @@ func TestCheckDiagDir(t *testing.T) {
 	}
 
 	c.DiagLogDir = "/dev/null/sub"
+	if runtime.GOOS == "windows" {
+		// /dev/null/sub is creatable on Windows; a directory below a regular file is not.
+		file := filepath.Join(t.TempDir(), "file")
+		if err := os.WriteFile(file, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		c.DiagLogDir = filepath.Join(file, "sub")
+	}
 	err = c.CheckDiagDir()
 	if err == nil || !strings.Contains(err.Error(), "DIAG_LOG_DIR") {
 		t.Errorf("not creatable: want a DIAG_LOG_DIR error, got %v", err)

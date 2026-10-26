@@ -1,0 +1,92 @@
+# Windows: copy this file to
+#   C:\Program Files\New Relic\newrelic-infra\integrations.d\db2-config.yml
+# and edit it. Commented "KEY: value" lines show the default of each optional key.
+# Quote every Windows path with single quotes, so the backslashes stay literal.
+#
+# Prerequisite: the IBM Data Server Driver for ODBC and CLI (clidriver) 12.1.4 must be unzipped on
+# this host and its bin directory must be on the system PATH. Restart the newrelic-infra service
+# after changing the PATH. See the Windows section of the README.
+
+# Optional: keep the password out of this file with the agent's obfuscated secrets.
+# Produce the obfuscated secret with the New Relic CLI (infrastructure agent 1.14.0 or later):
+#   newrelic agent config obfuscate --value '<password>' --key '<key>'
+# The command prints JSON; the secret is its "obfuscatedValue" string. To use it, uncomment this
+# block, fill in the same key and that secret, and set PASSWORD: ${db2MonitorPassword} below.
+# Leave the block commented out otherwise: the agent logs "failed to decode obfuscated secret"
+# for a placeholder secret.
+# variables:
+#   db2MonitorPassword:
+#     obfuscated:
+#       key: <key passed to --key>
+#       secret: <obfuscatedValue printed by the command>
+
+integrations:
+  # Plain TCP.
+  - name: nri-db2
+    # The integration is looked up in the agent's custom-integrations directory by name. If your
+    # agent does not find it, replace "name" with an absolute path:
+    # exec: ['C:\Program Files\New Relic\newrelic-infra\custom-integrations\nri-db2.exe']
+    env:
+      HOSTNAME: db2-prod-01.example.com     # always set explicitly; there is no default
+      # PORT: 50000
+      DATABASE: SALESDB
+      USERNAME: monuser
+      PASSWORD: '<password>'                # must not contain ';'
+      # or ${db2MonitorPassword} with the variables: block above
+      # CONNECT_TIMEOUT: 10
+      # QUERY_TIMEOUT: 30
+      # RUN_TIMEOUT: 100                    # seconds; if a run lasts longer, it publishes canConnect=0 and exits. 0 disables
+
+      # Required on Windows. The agent starts the integration without USERPROFILE, and the IBM
+      # client then fails every connect with SQL5005N. Use the profile folder of the account that
+      # runs the newrelic-infra service: this is the folder of the default LocalSystem account.
+      USERPROFILE: 'C:\Windows\System32\config\systemprofile'
+
+      # Custom queries (optional).
+      # CUSTOM_METRICS_CONFIG: 'C:\Program Files\New Relic\newrelic-infra\nri-db2\db2-custom-query.yml'
+
+      # Extra collections, all off by default. Each needs a GRANT EXECUTE from sql/grants.sql.
+      # COLLECT_TOP_QUERIES: true
+      # TOP_QUERIES_LIMIT: 20
+      # COLLECT_LONG_RUNNING_QUERIES: true
+      # LONG_RUNNING_THRESHOLD_SECONDS: 60
+      # COLLECT_LOCK_WAITS: true
+      # Replace literals and comments in statementText with placeholders (default true).
+      # STRIP_SQL_LITERALS: true
+
+      # db2diag.log collection through PD_GET_DIAG_HIST (opt-in). Also copy
+      # db2-diag-jsonl-log.yml.example to
+      # C:\Program Files\New Relic\newrelic-infra\logging.d\db2-diag-jsonl-log.yml.
+      # COLLECT_DIAG_LOGS: true
+      # DIAG_LOG_DIR defaults to C:\ProgramData\New Relic\nri-db2\logs on Windows.
+      # DIAG_LOG_DIR: 'C:\ProgramData\New Relic\nri-db2\logs'
+      # DIAG_FACILITY: MAIN
+      # DIAG_RECTYPE: ALL
+      # DIAG_OVERLAP_SECONDS: 10
+      # DIAG_MAX_RECORDS_PER_RUN: 5000
+      # DIAG_MAX_FILE_MB: 50
+      # DIAG_MIN_IMPACT is empty by default, which keeps every record. Set it only to drop
+      # records below a minimum impact; any non-empty value also excludes event records.
+    interval: 30s
+    # timeout: 120s                         # the agent stops a run that lasts longer (default 120s); see Troubleshooting
+    labels:                                 # custom attributes added to every sample
+      env: production
+      team: dba
+    inventory_source: config/db2
+
+  # TLS. HOSTNAME must match the server certificate (clidriver 12.1.4 verifies the name;
+  # an IP address or another name fails with SQL20576N).
+  - name: nri-db2
+    env:
+      HOSTNAME: db2-prod-02.example.com
+      PORT: 50443
+      DATABASE: SALESDB
+      USERNAME: monuser
+      PASSWORD: '<password>'                # or ${db2MonitorPassword} with the variables: block above
+      ENABLE_SSL: true                      # required whenever SSL_SERVER_CERTIFICATE is set
+      SSL_SERVER_CERTIFICATE: 'C:\Program Files\New Relic\newrelic-infra\db2\db2-prod-02.arm'
+      USERPROFILE: 'C:\Windows\System32\config\systemprofile'
+    interval: 30s
+    labels:
+      env: production
+    inventory_source: config/db2
