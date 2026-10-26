@@ -27,3 +27,28 @@ jobs:
 
     - name: Build
       run: make linux-intel VERSION=ci
+
+  # Windows needs no cgo and no clidriver to build or to run the unit tests.
+  windows:
+    runs-on: windows-latest
+    env:
+      CGO_ENABLED: "0"
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Vet
+      # The tagged run covers every file of the plain run. pwsh only returns the exit code of the
+      # last native command, so a single command keeps a vet failure from being hidden.
+      run: go vet -tags integration ./...
+
+    - name: Test
+      run: go test ./...
+
+    - name: Build
+      run: go build -ldflags "-s -w -X main.version=ci" -o bin/windows-amd64/nri-db2.exe ./cmd

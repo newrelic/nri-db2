@@ -1,0 +1,9 @@
+# Windows: copy this file to
+#   C:\Program Files\New Relic\newrelic-infra\logging.d\db2-diag-jsonl-log.yml
+# It tails the JSONL files written by nri-db2 when COLLECT_DIAG_LOGS is true.
+# The path below is the Windows default of DIAG_LOG_DIR. If you set DIAG_LOG_DIR, change it to match.
+logs:
+  - name: db2-diag-jsonl
+    file: 'C:\ProgramData\New Relic\nri-db2\logs\db2diag-*.jsonl'
+    attributes:
+      logtype: db2diag

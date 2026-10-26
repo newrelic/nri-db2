@@ -47,3 +47,19 @@ snapshot:
 
 deps:
 	$(DOCKER_RUN) $(BUILDER_IMAGE) sh -c 'go mod download && go mod tidy'
+
+# Windows amd64: no cgo, so the build needs neither clidriver nor a C toolchain. The binary loads
+# db2cli64.dll at run time.
+.PHONY: windows-amd64 windows-amd64-native vet-windows lint-windows
+
+windows-amd64:
+	$(DOCKER_RUN) $(BUILDER_IMAGE) make windows-amd64-native VERSION=$(VERSION)
+
+windows-amd64-native:
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BIN)/windows-amd64/$(OUT).exe $(MAIN)
+
+vet-windows:
+	$(DOCKER_RUN) -e CGO_ENABLED=0 -e GOOS=windows -e GOARCH=amd64 $(BUILDER_IMAGE) go vet -tags integration ./...
+
+lint-windows:
+	$(DOCKER_RUN) -e CGO_ENABLED=0 -e GOOS=windows -e GOARCH=amd64 $(BUILDER_IMAGE) golangci-lint run ./...

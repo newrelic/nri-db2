@@ -10,7 +10,8 @@
   - [System Requirements](#system-requirements)
   - [New Relic Requirements](#new-relic-requirements)
   - [DB2 Requirements](#db2-requirements)
-- [Installation](#installation)
+- [Installation (Linux)](#installation-linux)
+- [Windows](#windows)
 - [Configuration](#configuration)
   - [Integration Config](#integration-config)
   - [Environment Variables](#environment-variables)
@@ -71,7 +72,8 @@ This integration enables remote monitoring of IBM DB2.
 
 ### System Requirements
 
-- **Operating System**: Linux on x86-64 (`linux/amd64`) with glibc 2.34 or newer. Supported distributions are RHEL, Rocky Linux and AlmaLinux 9 or later, Ubuntu 22.04 or later, Debian 12 or later, and Amazon Linux 2023.
+- **Linux**: Linux on x86-64 (`linux/amd64`) with glibc 2.34 or newer. Supported distributions are RHEL, Rocky Linux and AlmaLinux 9 or later, Ubuntu 22.04 or later, Debian 12 or later, and Amazon Linux 2023.
+- **Windows**: the requirements below are for Linux. A separate `windows/amd64` build is available for Windows Server 2019 or later; its requirements and install steps are in [Windows](#windows).
 - **Not supported**: RHEL 8, Ubuntu 20.04, Debian 11 and Amazon Linux 2. They ship an older glibc, and the IBM driver fails to load on them with missing `GLIBC` symbols.
 - **IBM Data Server Driver for ODBC and CLI 12.1.4**, installed at `/opt/ibm/clidriver` (so that `libdb2.so.1` is at `/opt/ibm/clidriver/lib`). The integration binary has this location compiled in as its library search path, so no `LD_LIBRARY_PATH` is needed.
 - **System libraries**: `libxml2` and `libpam`, plus `libxcrypt-compat` (which provides `libcrypt.so.1`) on the RHEL 9 family and Amazon Linux 2023.
@@ -93,7 +95,7 @@ This integration enables remote monitoring of IBM DB2.
 - **Monitor switches**: the `MON_GET_*` functions are governed by the `MON_REQ_METRICS` and `MON_OBJ_METRICS` database configuration parameters. Their default value (`BASE`) is sufficient; do not set them to `NONE`.
 - One configuration block monitors **one database**. To monitor several databases, add one block per database.
 
-## Installation
+## Installation (Linux)
 
 1. Install the IBM Data Server Driver for ODBC and CLI 12.1.4 on the agent host:
    ```bash
@@ -160,6 +162,100 @@ This integration enables remote monitoring of IBM DB2.
    ```
 
 9. After one or two intervals, check that data arrives in New Relic (see [Usage](#usage)).
+
+## Windows
+
+When running the integration on Windows, everything in [Configuration](#configuration) and [Data Collection](#data-collection) applies, apart from the file paths and the differences listed here.
+
+### Windows requirements
+
+- **Operating system**: Windows Server 2019 or later on x86-64 (`windows/amd64`).
+- **IBM Data Server Driver for ODBC and CLI 12.1.4** (`ntx64_odbc_cli.zip`), unpacked on the agent host. The integration loads `db2cli64.dll` from it at run time, so the `bin` directory of the driver must be on the **system** `PATH`. No compiler is needed.
+- **Visual C++ runtimes (x64)** that the driver DLLs import. The driver itself needs the Visual C++ 2015-2022 runtime (`vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140.dll`), which many hosts already have. The TLS library inside the driver also needs the older Visual C++ 2013 runtime (`msvcr120.dll`, `msvcp120.dll`), so install it on every host that connects with `ENABLE_SSL: true`. Check them with:
+  ```powershell
+  'vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll','msvcr120.dll','msvcp120.dll' | ForEach-Object { "$_ : $(Test-Path "$env:SystemRoot\System32\$_")" }
+  ```
+- **Infrastructure agent** for Windows, installed and running as a service. Version 1.14.0 or later if you use the agent's obfuscated secrets.
+- **Network**: the agent host must reach the DB2 server on its listener port.
+- The DB2 side (monitoring user, grants, `sql/grants.sql`) is the same as in [DB2 Requirements](#db2-requirements).
+
+### Windows installation
+
+Run these steps in an elevated PowerShell session.
+
+1. Install the IBM driver:
+   ```powershell
+   Invoke-WebRequest -Uri https://public.dhe.ibm.com/ibmdl/export/pub/software/data/db2/drivers/odbc_cli/v12.1.4/ntx64_odbc_cli.zip -OutFile ntx64_odbc_cli.zip
+   Expand-Archive ntx64_odbc_cli.zip -DestinationPath 'C:\Program Files\IBM'
+   Test-Path 'C:\Program Files\IBM\clidriver\bin\db2cli64.dll'   # must print True
+   ```
+
+2. Add the driver's `bin` directory to the system `PATH`:
+   ```powershell
+   $bin = 'C:\Program Files\IBM\clidriver\bin'
+   $path = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+   if (($path -split ';') -notcontains $bin) {
+     [Environment]::SetEnvironmentVariable('Path', "$path;$bin", 'Machine')
+   }
+   ```
+   The infrastructure agent service only reads the system `PATH` when it starts, so the restart in step 7 is required.
+
+3. Prepare the DB2 side as in step 3 of [Installation (Linux)](#installation-linux).
+
+4. Download `nri-db2_windows_<version>_amd64.zip` from the [releases page](https://github.com/newrelic/nri-db2/releases) and unpack it:
+   ```powershell
+   Expand-Archive nri-db2_windows_<version>_amd64.zip -DestinationPath nri-db2
+   ```
+   The archive contains `nri-db2.exe`, `LICENSE`, `README.md`, the Windows samples under `config\windows\`, `config\db2-custom-query.yml.sample` and `sql\grants.sql`.
+
+5. Copy the binary to the agent's custom integrations directory (create it if it does not exist) and the sample configuration to `integrations.d`:
+   ```powershell
+   $nr = 'C:\Program Files\New Relic\newrelic-infra'
+   New-Item -ItemType Directory -Force "$nr\custom-integrations" | Out-Null
+   Copy-Item nri-db2\nri-db2.exe "$nr\custom-integrations\"
+   Copy-Item nri-db2\config\windows\db2-config.yml.sample "$nr\integrations.d\db2-config.yml"
+   # Optional: custom queries. Keep this file out of integrations.d.
+   New-Item -ItemType Directory -Force "$nr\nri-db2" | Out-Null
+   Copy-Item nri-db2\config\db2-custom-query.yml.sample "$nr\nri-db2\db2-custom-query.yml"
+   ```
+   Edit `db2-config.yml`. Set `HOSTNAME`, `DATABASE`, `USERNAME` and `PASSWORD` at a minimum. Quote Windows paths with single quotes so the backslashes stay literal.
+
+6. Optional: to collect diagnostic logs, use [Mode 1](#mode-1-remote-collection-through-sql). Set `COLLECT_DIAG_LOGS: true` and copy the log config:
+   ```powershell
+   Copy-Item nri-db2\config\windows\db2-diag-jsonl-log.yml.example "$nr\logging.d\db2-diag-jsonl-log.yml"
+   ```
+   Mode 2 (tailing `db2diag.log` on the DB2 host) has no Windows example.
+
+7. Restart the service:
+   ```powershell
+   Restart-Service newrelic-infra
+   ```
+
+### Differences on Windows
+
+- **Diag log directory**: when `DIAG_LOG_DIR` is not set, it defaults to `C:\ProgramData\New Relic\nri-db2\logs`. The Linux default (`/var/log/nri-db2`) applies only on Linux. If you set `DIAG_LOG_DIR` yourself, change the `file:` pattern in the log config to match.
+- **File permissions**: the `0750` and `0640` modes the integration requests are ignored on Windows. Diag files inherit the access rules of their parent directory, and diag records can hold statement text. Restrict the directory, for example:
+  ```powershell
+  icacls 'C:\ProgramData\New Relic\nri-db2\logs' /inheritance:r /grant:r 'SYSTEM:(OI)(CI)F' 'Administrators:(OI)(CI)F'
+  ```
+- **Diag file rotation**: when the log forwarder holds the current JSONL file open, Windows refuses to rename it. The integration then logs a warning, keeps appending to the same file and tries to rotate again on the next run, so a file can exceed `DIAG_MAX_FILE_MB` for a while. Only this case is tolerated: if the rename fails for another reason, such as access denied, diag collection logs the error and skips that run.
+- **State store**: the default directory is `nr-integrations` under the temporary directory of the account that runs the agent (for the default `LocalSystem` service, below `C:\Windows\Temp`). `NRIA_CACHE_PATH` overrides it.
+- **User profile folder**: the agent starts the integration without the `USERPROFILE` variable, and the IBM client then fails every connect with `SQL5005N`. The sample sets `USERPROFILE: 'C:\Windows\System32\config\systemprofile'` in `env:`, which is the profile folder of the default `LocalSystem` service account. If the `newrelic-infra` service runs as another account, use that account's profile folder instead.
+- **Failed connections**: in tests, a run against a refused or unreachable DB2 port took about `2 × CONNECT_TIMEOUT` to publish `canConnect=0` (two attempts of `CONNECT_TIMEOUT` each: 20s with `CONNECT_TIMEOUT: 10`), and about twice that for a host name that resolves to two addresses (`localhost`: 40s). Keep `CONNECT_TIMEOUT` and `RUN_TIMEOUT` in mind when you size the agent's `timeout:`. `DB2_MAX_CLIENT_CONNRETRIES` made no measurable difference on Windows, so the Windows sample does not set it.
+- **TLS**: `ENABLE_SSL` and `SSL_SERVER_CERTIFICATE` work as described in [TLS](#tls). Use a full Windows path, in single quotes, for the certificate.
+
+### Windows troubleshooting
+
+- **`canConnect` is 0 and the log says `load db2cli64.dll`**: the driver is not on the `PATH` of the agent service. Check that `C:\Program Files\IBM\clidriver\bin\db2cli64.dll` exists, that its directory is on the **system** `PATH`, and restart `newrelic-infra`. A change to the `PATH` does not reach a service that is already running.
+- **A message that the `go_ibm_db` driver cannot be registered**, followed by `unknown driver`: the same cause, reported by the driver itself.
+- **The integration is not found**: replace `name: nri-db2` in the config with `exec: ['C:\Program Files\New Relic\newrelic-infra\custom-integrations\nri-db2.exe']`.
+- **Every connection fails with `cannot connect: other (SQLSTATE      , SQL5005N)` when the agent runs the integration, but a run by hand works**: `USERPROFILE` is missing from the integration's environment. Add `USERPROFILE: 'C:\Windows\System32\config\systemprofile'` to the `env:` block of the integration (see [Differences on Windows](#differences-on-windows)).
+- **TLS connections fail at once with `cannot connect: other (SQLSTATE HY000, SQL1042N)`, while plain connections work**: the TLS library of the IBM driver cannot load because the Visual C++ 2013 x64 runtime (`msvcr120.dll`, `msvcp120.dll`) is missing. Install it and run the integration again. A TLS failure from a wrong host name or an IP address looks different: `SQL20576N`.
+- **Run the integration by hand** to see its output. Use the same account as the service where possible:
+  ```powershell
+  $env:HOSTNAME='db2-prod-01.example.com'; $env:DATABASE='SALESDB'; $env:USERNAME='monuser'; $env:PASSWORD='<password>'
+  & 'C:\Program Files\New Relic\newrelic-infra\custom-integrations\nri-db2.exe' -pretty
+  ```
 
 ## Configuration
 
@@ -280,7 +376,7 @@ The IBM client also reads its own environment variables. One matters here:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB2_MAX_CLIENT_CONNRETRIES` | `0` | IBM client setting, not an integration key. Without it, the 12.1.4 client takes about 5 seconds longer to fail a connection. The integration sets it to `0` before the first connection unless you have already set it in the process environment, in which case your value is kept. |
+| `DB2_MAX_CLIENT_CONNRETRIES` | `0` | IBM client setting, not an integration key. On Linux, without it, the 12.1.4 client takes about 5 seconds longer to fail a connection. The integration sets it to `0` before the first connection unless you have already set it in the process environment, in which case your value is kept. |
 
 **Invalid values are rejected.** An environment variable that cannot be parsed (a boolean, an integer or a duration) is a startup error: the integration logs which variable is wrong (never its value for `USERNAME` and `PASSWORD`) and exits with code 2, instead of silently ignoring it. Booleans must be a Go `ParseBool` value: `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false` or `False`. `yes`, `no`, `on` and `off` are rejected. In YAML, quote booleans (`ENABLE_SSL: "true"`) so that the agent passes the literal text and not a value converted by the YAML parser.
 
@@ -445,7 +541,7 @@ How it works:
 
 #### Mode 2: On-Host Tail of db2diag.log
 
-When the Infrastructure agent runs on the Linux DB2 host itself, it can tail `db2diag.log` directly. Copy the three example files shown in [Installation](#installation) step 7, then edit the `Path` in `db2-fluentbit.conf` to your instance's `DIAGPATH` (usually `<instance home>/sqllib/db2dump/DIAG0000/db2diag.log`).
+When the Infrastructure agent runs on the Linux DB2 host itself, it can tail `db2diag.log` directly. Copy the three example files shown in [Installation (Linux)](#installation-linux) step 7, then edit the `Path` in `db2-fluentbit.conf` to your instance's `DIAGPATH` (usually `<instance home>/sqllib/db2dump/DIAG0000/db2diag.log`).
 
 - `db2-parsers.conf` defines a multi-line parser that starts a new record only at the full header timestamp, so records that contain timestamp-like data lines are not split. Keep `flush_timeout` at 2000 ms or more.
 - `logtype: db2diag` is set by the `record_modifier` filter in `db2-fluentbit.conf`, and `filePath` holds the file the record came from.
@@ -969,7 +1065,8 @@ It's recommended to only run this for 3-5 minutes.
 4. Other targets, all of which run in the builder image:
    - `make test` runs the unit tests.
    - `make lint` runs `golangci-lint`.
-   - `make snapshot` is a release dry run with GoReleaser. The tar.gz archive is written to `dist/`.
+   - `make snapshot` is a release dry run with GoReleaser. The Linux tar.gz archive and the Windows zip are written to `dist/`.
+   - `make windows-amd64` builds `bin/windows-amd64/nri-db2.exe`. The Windows build does not use cgo, so it needs neither the IBM driver nor a C toolchain; the binary loads `db2cli64.dll` at run time. `make vet-windows` and `make lint-windows` check the Windows code.
    - `make deps` runs `go mod download` and `go mod tidy`.
    - `make clean` removes `bin/`.
    - `make integration-test` runs the integration tests against a DB2 server. It needs a reachable DB2 test server on the Docker network `db2net`, and takes `DB2_TEST_HOSTNAME`, `DB2_TEST_PORT` and `MONUSER_PASSWORD` as variables.
