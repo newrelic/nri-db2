@@ -12,8 +12,8 @@ import (
 func newTestFlags() (*flag.FlagSet, *bool, *int, *time.Duration, *string) {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	b := fs.Bool("enable_ssl", false, "")
-	n := fs.Int("port", 50000, "")
+	b := fs.Bool("enable_ssl", true, "")
+	n := fs.Int("port", 50443, "")
 	d := fs.Duration("cache_ttl", 6*time.Minute, "")
 	s := fs.String("password", "", "")
 	fs.Int("diag_overlap_seconds", 10, "")
@@ -80,7 +80,7 @@ func TestCheckEnvArgsJoinsAndKeepsValues(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ENABLE_SSL") || !strings.Contains(err.Error(), "PORT") {
 		t.Fatalf("want both variables in the error, got %v", err)
 	}
-	if *b || *n != 50443 {
+	if !*b || *n != 50443 {
 		t.Errorf("flag values changed: ssl=%t port=%d", *b, *n)
 	}
 }

@@ -77,7 +77,7 @@ This integration enables remote monitoring of IBM DB2.
 - **Not supported**: RHEL 8, Ubuntu 20.04, Debian 11 and Amazon Linux 2. They ship an older glibc, and the IBM driver fails to load on them with missing `GLIBC` symbols.
 - **IBM Data Server Driver for ODBC and CLI 12.1.4**, installed at `/opt/ibm/clidriver` (so that `libdb2.so.1` is at `/opt/ibm/clidriver/lib`). The integration binary has this location compiled in as its library search path, so no `LD_LIBRARY_PATH` is needed.
 - **System libraries**: `libxml2` and `libpam`, plus `libxcrypt-compat` (which provides `libcrypt.so.1`) on the RHEL 9 family and Amazon Linux 2023.
-- **Network**: the agent host must reach the DB2 server on its listener port (default `50000`; TLS example `50443`).
+- **Network**: the agent host must reach the DB2 server on its listener port (default `50443`, the TLS port; a plaintext port such as `50000` needs `ENABLE_SSL: false`).
 - **Architecture**: only `linux/amd64` is built. IBM publishes no Linux arm64 client driver, so arm64 hosts are not supported.
 
 ### New Relic Requirements
@@ -267,11 +267,12 @@ Each `integrations:` entry monitors one database. This is an abbreviated version
 
 ```yaml
 integrations:
-  # Plain TCP.
+  # Plain TCP. TLS is the default, so a plaintext port needs ENABLE_SSL: false.
   - name: nri-db2
     env:
       HOSTNAME: db2-prod-01.example.com     # always set explicitly; there is no default
-      # PORT: 50000
+      PORT: 50000                           # the default is 50443, the TLS port
+      ENABLE_SSL: false                     # the default is true
       DATABASE: SALESDB
       USERNAME: monuser
       PASSWORD: '<password>'                # must not contain ';'
@@ -310,7 +311,7 @@ integrations:
       DATABASE: SALESDB
       USERNAME: monuser
       PASSWORD: '<password>'                # or ${db2MonitorPassword}
-      ENABLE_SSL: true                      # required whenever SSL_SERVER_CERTIFICATE is set
+      ENABLE_SSL: true                      # the default; cannot be false when SSL_SERVER_CERTIFICATE is set
       SSL_SERVER_CERTIFICATE: /etc/newrelic-infra/db2/db2-prod-02.arm
     interval: 30s
     labels:
@@ -333,12 +334,12 @@ These are the integration's own settings. All of them are set in the `env:` map.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HOSTNAME` | none (required) | DB2 server host name. With `ENABLE_SSL` it must match the name in the server certificate. |
-| `PORT` | `50000` | DB2 listener port (1-65535). |
+| `PORT` | `50443` | DB2 listener port (1-65535). The default is the TLS port; for a plaintext port such as `50000`, also set `ENABLE_SSL: false`. |
 | `DATABASE` | none (required) | Database name (alias). One block monitors one database. |
 | `USERNAME` | none (required) | Monitoring user. Needs the grants in `sql/grants.sql`, or `SYSMON`, `SQLADM` or `DBADM`. |
 | `PASSWORD` | none (required) | Password for the monitoring user. Must not contain `;`. Supply it through the agent `variables:` block (see [Secrets](#secrets)). |
-| `ENABLE_SSL` | `false` | Use TLS to the server. |
-| `SSL_SERVER_CERTIFICATE` | empty | Path to the server certificate (`.arm`) that the client trusts. Requires `ENABLE_SSL: true`. |
+| `ENABLE_SSL` | `true` | Use TLS to the server. Set `false` for a plaintext port. |
+| `SSL_SERVER_CERTIFICATE` | empty | Path to the server certificate (`.arm`) that the client trusts. Requires `ENABLE_SSL: true` (default). |
 | `CONNECT_TIMEOUT` | `10` | Seconds to wait when establishing the connection (minimum 1). |
 | `QUERY_TIMEOUT` | `30` | Per-statement cancel timeout in seconds (minimum 1). It does not interrupt every statement type. The whole run is bounded by `RUN_TIMEOUT`; see [Troubleshooting](#troubleshooting) item 12. |
 | `RUN_TIMEOUT` | `100` | Overall limit for one run, in seconds. `0` disables it; otherwise the minimum is 1. If a run exceeds it, the integration publishes a `Db2DatabaseSample` with `canConnect = 0` and exits with code 0, because the agent kills an integration that runs longer than its own `timeout` (default 120 seconds) and a killed run publishes nothing. Keep it below the agent `timeout`. |
@@ -418,7 +419,7 @@ For other available secret options, [see docs](https://docs.newrelic.com/docs/in
 
 ### TLS
 
-To encrypt the connection, set `ENABLE_SSL: true` and point `SSL_SERVER_CERTIFICATE` at the server certificate (an `.arm` file exported from the DB2 server's key database):
+The connection is encrypted by default (`ENABLE_SSL: true`, `PORT` `50443`). Point `SSL_SERVER_CERTIFICATE` at the server certificate (an `.arm` file exported from the DB2 server's key database) so that the client trusts it:
 
 ```yaml
 env:
@@ -430,8 +431,9 @@ env:
 
 - The DB2 server must already listen for TLS connections on the configured port.
 - The IBM 12.1.4 client verifies the server name. `HOSTNAME` must be the name that appears in the certificate. Connecting by IP address, or by any other name, fails with `SQL20576N`.
-- Setting `SSL_SERVER_CERTIFICATE` without `ENABLE_SSL: true` is a startup error. The integration refuses to run rather than ignore the certificate and connect in plaintext.
-- `ENABLE_SSL: true` without a certificate is allowed and logs a warning. A server with a self-signed certificate is then likely to fail with `SQL30081N`.
+- Setting `SSL_SERVER_CERTIFICATE` together with an explicit `ENABLE_SSL: false` is a startup error. The integration refuses to run rather than ignore the certificate and connect in plaintext.
+- `ENABLE_SSL: true` without a certificate is allowed (it is the default) and logs a debug message. The client then uses its own trust store, and a server with a self-signed certificate is likely to fail with `SQL30081N`.
+- To monitor over a plaintext port, set `ENABLE_SSL: false` and `PORT` to that port.
 - Keep the IBM client at 12.1.4 or later. Older clients do not verify the server name.
 
 ### Password Rules
@@ -972,7 +974,7 @@ The repository includes a template dashboard, `dashboards/db2-dashboard.json`. T
 4. **TLS errors: `SQL20576N` or `SQL30081N`**
    - `SQL20576N`: the server name does not match the certificate. Set `HOSTNAME` to the name in the certificate, not to an IP address or an alias.
    - `SQL30081N` with TLS enabled: the certificate file is missing or not trusted, or `ENABLE_SSL` is set against a port that is not a TLS port. Check `SSL_SERVER_CERTIFICATE`, and check that the port is the DB2 TLS port.
-   - Conversely, a plaintext connection to a TLS port also fails with `SQL30081N`. Make sure `ENABLE_SSL` matches the port.
+   - Conversely, a plaintext connection to a TLS port also fails with `SQL30081N`. Make sure `ENABLE_SSL` matches the port. TLS is the default, so a plaintext port needs an explicit `ENABLE_SSL: false`.
    - A TLS client pointed at a plaintext port ignores `CONNECT_TIMEOUT`: with clidriver 12.1.4, a connect can hang ~6 minutes before failing with `SQL30081N`. `RUN_TIMEOUT` (default 100 s) ends such a run, publishes `canConnect=0` and logs `run exceeded RUN_TIMEOUT`. If you see that message, check that `ENABLE_SSL` matches the port. Keep `RUN_TIMEOUT` below the agent's integration `timeout` (default 120 s), or the agent kills the run before anything is published.
    - After restarting the DB2 server, confirm that it is again listening for TLS connections on the TLS port.
 
@@ -1008,7 +1010,7 @@ The repository includes a template dashboard, `dashboards/db2-dashboard.json`. T
 10. **Running the integration by hand**
     - Run the same command the agent runs, with your settings in the environment, to see the output and any errors:
       ```bash
-      HOSTNAME=db2-prod-01.example.com PORT=50000 DATABASE=SALESDB USERNAME=monuser PASSWORD='<password>' \
+      HOSTNAME=db2-prod-01.example.com PORT=50000 ENABLE_SSL=false DATABASE=SALESDB USERNAME=monuser PASSWORD='<password>' \
         /var/db/newrelic-infra/custom-integrations/nri-db2 -pretty -verbose
       ```
     - Limit the output with `-metrics`, `-inventory` or `-events`, for example `-inventory -pretty`. Without them, all three are published.

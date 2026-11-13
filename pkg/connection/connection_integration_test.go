@@ -20,7 +20,7 @@ func integrationConfig(t *testing.T) config.Config {
 	if host == "" || password == "" {
 		t.Skip("DB2_TEST_HOSTNAME and MONUSER_PASSWORD are required")
 	}
-	port := config.DefaultPort
+	port := 50000 // the plaintext port, because EnableSSL is false below
 	if p := os.Getenv("DB2_TEST_PORT"); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil {
@@ -31,6 +31,7 @@ func integrationConfig(t *testing.T) config.Config {
 	return config.Config{
 		Hostname:       host,
 		Port:           port,
+		EnableSSL:      false,
 		Database:       "testdb",
 		Username:       "monuser",
 		Password:       password,

@@ -50,12 +50,12 @@ type argumentList struct {
 	sdkArgs.DefaultArgumentList
 
 	Hostname string `default:"" help:"Db2 server host name or address. Must always be set explicitly."`
-	Port     int    `default:"50000" help:"Db2 listener port."`
+	Port     int    `default:"50443" help:"Db2 listener port."`
 	Database string `default:"" help:"Database name (alias). One block monitors one database."`
 	Username string `default:"" help:"Monitoring user."`
 	Password string `default:"" help:"Password. Must not contain ';'."`
 
-	EnableSSL            bool   `default:"false" help:"Use TLS to the server."`
+	EnableSSL            bool   `default:"true" help:"Use TLS to the server."`
 	SSLServerCertificate string `default:"" help:"Path to the server certificate the client trusts. Requires ENABLE_SSL."`
 	ConnectTimeout       int    `default:"10" help:"Seconds to wait when establishing the connection."`
 	QueryTimeout         int    `default:"30" help:"Per-statement cancel timeout in seconds."`
@@ -151,7 +151,7 @@ func run() int {
 	diagOn := cfg.CollectDiagLogs && args.HasMetrics() && diagDirUsable(cfg)
 
 	if cfg.EnableSSL && cfg.SSLServerCertificate == "" {
-		log.Warn("ENABLE_SSL is true but SSL_SERVER_CERTIFICATE is empty: the client falls back to its own trust store")
+		log.Debug("ENABLE_SSL is true but SSL_SERVER_CERTIFICATE is empty: the client falls back to its own trust store")
 	}
 
 	e, err := newEntity(i, cfg)
