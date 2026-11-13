@@ -13,7 +13,7 @@ import (
 
 // Config defaults
 const (
-	DefaultPort           = 50000
+	DefaultPort           = 50443
 	DefaultConnectTimeout = 10
 	DefaultQueryTimeout   = 30
 	DefaultRunTimeout     = 100

@@ -10,7 +10,7 @@ import (
 // The declared defaults are the documented configuration defaults.
 func TestArgumentDefaults(t *testing.T) {
 	want := map[string]string{
-		"Port": "50000", "EnableSSL": "false", "ConnectTimeout": "10", "QueryTimeout": "30", "RunTimeout": "100",
+		"Port": "50443", "EnableSSL": "true", "ConnectTimeout": "10", "QueryTimeout": "30", "RunTimeout": "100",
 		"CollectTopQueries": "false", "TopQueriesLimit": "20",
 		"CollectLongRunningQueries": "false", "LongRunningThresholdSeconds": "60",
 		"CollectLockWaits": "false", "StripSqlLiterals": "true", "CollectDiagLogs": "false",

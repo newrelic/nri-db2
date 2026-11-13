@@ -21,14 +21,15 @@
 #       secret: <obfuscatedValue printed by the command>
 
 integrations:
-  # Plain TCP.
+  # Plain TCP. TLS is the default, so a plaintext port needs ENABLE_SSL: false.
   - name: nri-db2
     # The integration is looked up in the agent's custom-integrations directory by name. If your
     # agent does not find it, replace "name" with an absolute path:
     # exec: ['C:\Program Files\New Relic\newrelic-infra\custom-integrations\nri-db2.exe']
     env:
       HOSTNAME: db2-prod-01.example.com     # always set explicitly; there is no default
-      # PORT: 50000
+      PORT: 50000                           # non-tls port
+      ENABLE_SSL: false                     # disable ssl
       DATABASE: SALESDB
       USERNAME: monuser
       PASSWORD: '<password>'                # must not contain ';'
@@ -83,7 +84,7 @@ integrations:
       DATABASE: SALESDB
       USERNAME: monuser
       PASSWORD: '<password>'                # or ${db2MonitorPassword} with the variables: block above
-      ENABLE_SSL: true                      # required whenever SSL_SERVER_CERTIFICATE is set
+      ENABLE_SSL: true                      # the default; cannot be false when SSL_SERVER_CERTIFICATE is set
       SSL_SERVER_CERTIFICATE: 'C:\Program Files\New Relic\newrelic-infra\db2\db2-prod-02.arm'
       USERPROFILE: 'C:\Windows\System32\config\systemprofile'
     interval: 30s
